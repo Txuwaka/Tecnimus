@@ -260,6 +260,8 @@ if(typeof document!=='undefined'){
         }
       });
     });
+    const musBtn=$('btn-mus');
+    if(musBtn)musBtn.disabled=state.stage!=='mus'||state.selected.size===0;
     renderHandStrength();
   }
 
@@ -275,7 +277,7 @@ if(typeof document!=='undefined'){
     $('resumen').innerHTML='<p class="empty">Aquí aparecerán los resultados al descubrir las cartas.</p>';
     $('cuenta-descartes').textContent='(0)';
     panel('mus');
-    status('Selecciona las cartas que quieras cambiar.','Puedes dar mus sin descartar cartas o cortar. La mano avanza a derechas.','TU TURNO');
+    status('Selecciona las cartas que quieras cambiar.','Para dar mus debes descartar al menos una carta. También puedes cortar. La mano avanza a derechas.','TU TURNO');
     render();
   }
 
@@ -296,6 +298,10 @@ if(typeof document!=='undefined'){
 
   function giveMus(){
     if(state.stage!=='mus')return;
+    if(state.selected.size===0){
+      status('Selecciona al menos una carta.','Para dar mus debes descartar como mínimo una carta.','MUS');
+      render();return;
+    }
     const aiIds=MusRules.ids.filter(id=>id!=='jugador1');
     const cutter=MusRules.order(state.mano).filter(id=>id!=='jugador1').find(id=>{
       const h=state.hands[id];
