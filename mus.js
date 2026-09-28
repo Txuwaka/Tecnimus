@@ -273,6 +273,46 @@ function evaluarGanadorGrande() {
 }
 
 
+// 5.5. Ordenar una mano de menor a mayor (para La Chica)
+function ordenarManoParaChica(mano) {
+    // Ordenamos de menor a mayor usando el mismo valor real de las cartas
+    return [...mano].sort((a, b) => obtenerValorGrande(a) - obtenerValorGrande(b));
+}
+
+// 5.6. Comparar dos manos para La Chica
+function compararManosChica(manoA, manoB) {
+    let ordenA = ordenarManoParaChica(manoA);
+    let ordenB = ordenarManoParaChica(manoB);
+
+    for (let i = 0; i < 4; i++) {
+        let valA = obtenerValorGrande(ordenA[i]);
+        let valB = obtenerValorGrande(ordenB[i]);
+        
+        // El que tenga la carta más baja gana
+        if (valA < valB) return 1;  // Gana manoA
+        if (valB < valA) return -1; // Gana manoB
+    }
+    return 0; // Si las 4 cartas son idénticas en valor
+}
+
+// 5.7. Evaluar a los 4 jugadores para ver quién tiene la mejor Chica
+function evaluarGanadorChica() {
+    const ordenJugadores = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
+    let ganadorActual = 'jugador1';
+
+    for (let i = 1; i < ordenJugadores.length; i++) {
+        let rival = ordenJugadores[i];
+        let resultado = compararManosChica(manosActuales[ganadorActual], manosActuales[rival]);
+        
+        // Si el rival tiene estrictamente mejor Chica, nos roba el liderato.
+        // En caso de empate, la "mano" retiene la victoria.
+        if (resultado === -1) {
+            ganadorActual = rival;
+        }
+    }
+
+    return ganadorActual;
+}
 // --- 6. MODO TEST: LEVANTAR CARTAS ---
 document.getElementById('btn-resolver').addEventListener('click', () => {
     // 1. Damos la vuelta a las cartas de los rivales quitando la clase 'carta-oculta'
