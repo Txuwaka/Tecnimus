@@ -221,3 +221,88 @@ function iniciarPartida() {
 }
 
 window.onload = iniciarPartida;
+// --- 5. EVALUACIÓN DE LAS JUGADAS ---
+
+// 5.1. Obtener el valor real de la carta para La Grande y La Chica
+function obtenerValorGrande(carta) {
+    if (carta.numero === 3) return 12; // Los 3 son Reyes
+    if (carta.numero === 2) return 1;  // Los 2 son Ases
+    return carta.numero;               // Resto de cartas: 12, 11, 10, 7, 6, 5, 4, 1
+}
+
+// 5.2. Ordenar una mano de mayor a menor
+function ordenarManoParaGrande(mano) {
+    // Usamos [...mano] para crear una copia y no desordenar las cartas visualmente en la mesa
+    return [...mano].sort((a, b) => obtenerValorGrande(b) - obtenerValorGrande(a));
+}
+
+// 5.3. Comparar dos manos. Devuelve 1 (gana manoA), -1 (gana manoB), o 0 (empate)
+function compararManosGrande(manoA, manoB) {
+    let ordenA = ordenarManoParaGrande(manoA);
+    let ordenB = ordenarManoParaGrande(manoB);
+
+    for (let i = 0; i < 4; i++) {
+        let valA = obtenerValorGrande(ordenA[i]);
+        let valB = obtenerValorGrande(ordenB[i]);
+        
+        if (valA > valB) return 1;
+        if (valB > valA) return -1;
+    }
+    return 0; // Si las 4 cartas son idénticas en valor
+}
+
+// 5.4. Evaluar a los 4 jugadores para ver quién tiene la mejor Grande
+function evaluarGanadorGrande() {
+    const ordenJugadores = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
+    
+    // Asumimos que jugador1 (Tú) es "la mano" y tiene prioridad en caso de empate total
+    let ganadorActual = 'jugador1';
+
+    for (let i = 1; i < ordenJugadores.length; i++) {
+        let rival = ordenJugadores[i];
+        let resultado = compararManosGrande(manosActuales[ganadorActual], manosActuales[rival]);
+        
+        // Si el rival tiene estrictamente mejor mano, nos roba el puesto de ganador.
+        // Si hay empate (resultado === 0), el que iba ganando retiene el liderato por posición.
+        if (resultado === -1) {
+            ganadorActual = rival;
+        }
+    }
+
+    return ganadorActual;
+}
+
+
+// --- 6. MODO TEST: LEVANTAR CARTAS ---
+document.getElementById('btn-resolver').addEventListener('click', () => {
+    // 1. Damos la vuelta a las cartas de los rivales quitando la clase 'carta-oculta'
+    const rivales = [
+        { id: 'cartas-j2', mano: manosActuales.jugador2 },
+        { id: 'cartas-j3', mano: manosActuales.jugador3 },
+        { id: 'cartas-j4', mano: manosActuales.jugador4 }
+    ];
+
+    rivales.forEach(rival => {
+        const contenedor = document.getElementById(rival.id);
+        contenedor.innerHTML = ''; // Borramos los reversos
+        
+        rival.mano.forEach(carta => {
+            const cartaDiv = document.createElement('div');
+            cartaDiv.className = 'carta'; // Sin 'carta-oculta'
+            cartaDiv.innerText = carta.nombre;
+            contenedor.appendChild(cartaDiv);
+        });
+    });
+
+    // 2. Calculamos quién gana La Grande y lo anunciamos
+    let idGanador = evaluarGanadorGrande();
+    
+    let nombres = {
+        'jugador1': 'Tú',
+        'jugador2': 'Rival 1',
+        'jugador3': 'Tu compañero',
+        'jugador4': 'Rival 2'
+    };
+
+    alert(`¡Las cartas están boca arriba!\nEl ganador de LA GRANDE es: ${nombres[idGanador]}`);
+});
