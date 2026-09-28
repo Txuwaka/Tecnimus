@@ -4,8 +4,9 @@ const urlsToCache = [
   './index.html',
   './style.css',
   './mus.js',
-  './manifest.json'
-  // Si creaste las imágenes para los iconos, añádelas aquí también (ej: './icono-192.png')
+  './manifest.json',
+  './icono-192.png',
+  './icono-512.png'
 ];
 
 self.addEventListener('install', event => {
