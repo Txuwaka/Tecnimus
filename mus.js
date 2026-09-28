@@ -1,5 +1,5 @@
 // ==========================================
-// 1. VARIABLES GLOBALES DE ESTADO
+// 1. VARIABLES GLOBALES Y MARCADOR
 // ==========================================
 let mazoActual = [];
 let manosActuales = {};
@@ -7,11 +7,30 @@ let faseMus = true;
 let cartasADescartar = [];
 const ordenFases = ['GRANDE', 'CHICA', 'PARES', 'JUEGO'];
 let indiceFaseActual = 0;
+
+// Sistema de puntuación (Partida a 40 piedras / 4 amarracos)
+let puntosNosotros = 0;
+let puntosEllos = 0;
+let botesFase = { GRANDE: 1, CHICA: 1, PARES: 0, JUEGO: 0 }; 
 let piedrasEnMesa = 0;
 
+function sumarPuntos(equipo, cantidad) {
+    if (equipo === 'nosotros') puntosNosotros += cantidad;
+    if (equipo === 'ellos') puntosEllos += cantidad;
+    
+    document.getElementById('pts-nosotros').innerText = puntosNosotros;
+    document.getElementById('pts-ellos').innerText = puntosEllos;
+
+    if (puntosNosotros >= 40) setTimeout(() => alert("🏆 ¡ENHORABUENA! Vuestro equipo ha ganado la partida."), 500);
+    if (puntosEllos >= 40) setTimeout(() => alert("💀 FIN DEL JUEGO. Han ganado los rivales."), 500);
+}
+
+function esNuestroEquipo(idJugador) {
+    return idJugador === 'jugador1' || idJugador === 'jugador3';
+}
 
 // ==========================================
-// 2. LÓGICA DE LA BARAJA Y REPARTO
+// 2. BARAJA Y REPARTO
 // ==========================================
 const palos = ['Oros', 'Copas', 'Espadas', 'Bastos'];
 const numeros = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
@@ -21,15 +40,9 @@ function crearBarajaMus() {
     palos.forEach(palo => {
         numeros.forEach(numero => {
             let valorJuego = numero;
-            if (numero === 10 || numero === 11 || numero === 12 || numero === 3) valorJuego = 10;
+            if ([10, 11, 12, 3].includes(numero)) valorJuego = 10;
             if (numero === 2) valorJuego = 1;
-
-            baraja.push({
-                palo: palo,
-                numero: numero,
-                valorJuego: valorJuego,
-                nombre: `${numero} de ${palo}`
-            });
+            baraja.push({ palo, numero, valorJuego, nombre: `${numero} de ${palo}` });
         });
     });
     return baraja;
@@ -44,55 +57,37 @@ function barajar(baraja) {
 }
 
 function repartir(baraja) {
-    let jugadores = { jugador1: [], jugador2: [], jugador3: [], jugador4: [] };
+    let j = { jugador1: [], jugador2: [], jugador3: [], jugador4: [] };
     for (let i = 0; i < 4; i++) {
-        jugadores.jugador1.push(baraja.pop());
-        jugadores.jugador2.push(baraja.pop());
-        jugadores.jugador3.push(baraja.pop());
-        jugadores.jugador4.push(baraja.pop());
+        j.jugador1.push(baraja.pop()); j.jugador2.push(baraja.pop());
+        j.jugador3.push(baraja.pop()); j.jugador4.push(baraja.pop());
     }
-    return { manos: jugadores, mazoSobrante: baraja };
+    return { manos: j, mazoSobrante: baraja };
 }
-
 
 // ==========================================
 // 3. RENDERIZADO VISUAL E INTERACCIÓN
 // ==========================================
 function renderizarCartas(manos) {
     const divJ1 = document.getElementById('cartas-j1');
-    const divsOcultos = [
-        { id: 'cartas-j2', cartas: manos.jugador2 },
-        { id: 'cartas-j3', cartas: manos.jugador3 },
-        { id: 'cartas-j4', cartas: manos.jugador4 }
-    ];
+    const divsOcultos = [{ id: 'cartas-j2', cartas: manos.jugador2 }, { id: 'cartas-j3', cartas: manos.jugador3 }, { id: 'cartas-j4', cartas: manos.jugador4 }];
 
     divJ1.innerHTML = '';
-    divsOcultos.forEach(jugador => document.getElementById(jugador.id).innerHTML = '');
+    divsOcultos.forEach(j => document.getElementById(j.id).innerHTML = '');
 
-    // Tus cartas
     manos.jugador1.forEach((carta, index) => {
         const cartaDiv = document.createElement('div');
-        cartaDiv.className = 'carta';
+        cartaDiv.className = `carta ${cartasADescartar.includes(index) ? 'seleccionada' : ''}`;
         cartaDiv.innerText = carta.nombre;
         
-        if (cartasADescartar.includes(index)) {
-            cartaDiv.classList.add('seleccionada');
-        }
-
         cartaDiv.addEventListener('click', () => {
             if (!faseMus) return;
-            if (cartasADescartar.includes(index)) {
-                cartasADescartar = cartasADescartar.filter(i => i !== index);
-            } else {
-                cartasADescartar.push(index);
-            }
+            cartasADescartar.includes(index) ? cartasADescartar = cartasADescartar.filter(i => i !== index) : cartasADescartar.push(index);
             renderizarCartas(manosActuales);
         });
-
         divJ1.appendChild(cartaDiv);
     });
 
-    // Cartas rivales ocultas
     divsOcultos.forEach(jugador => {
         const contenedor = document.getElementById(jugador.id);
         jugador.cartas.forEach(() => {
@@ -103,85 +98,42 @@ function renderizarCartas(manos) {
     });
 }
 
-
 // ==========================================
 // 4. FLUJO DE DESCARTES (MUS)
 // ==========================================
 function decidirDescartesIA(mano) {
-    let cartasTirar = [];
-    mano.forEach((carta, index) => {
-        if (carta.numero >= 4 && carta.numero <= 7) cartasTirar.push(index);
-    });
-    return cartasTirar;
+    return mano.map((c, i) => (c.numero >= 4 && c.numero <= 7) ? i : -1).filter(i => i !== -1);
 }
 
 document.getElementById('btn-mus').addEventListener('click', () => {
-    if (!faseMus) return;
+    if (!faseMus || cartasADescartar.length === 0) return alert("Selecciona cartas para descartar.");
 
-    if (cartasADescartar.length === 0) {
-        alert("Selecciona al menos una carta para descartar.");
-        return;
-    }
-
-    let alguienCorta = false;
-    let quienCorta = "";
-    let descartesPrevistos = {};
-    const jugadoresIA = ['jugador2', 'jugador3', 'jugador4'];
-
-    jugadoresIA.forEach(jugador => {
-        descartesPrevistos[jugador] = decidirDescartesIA(manosActuales[jugador]);
-        if (descartesPrevistos[jugador].length === 0) {
-            alguienCorta = true;
-            quienCorta = jugador;
-        }
+    let alguienCorta = false, quienCorta = "", descartesPrevistos = {};
+    ['jugador2', 'jugador3', 'jugador4'].forEach(j => {
+        descartesPrevistos[j] = decidirDescartesIA(manosActuales[j]);
+        if (descartesPrevistos[j].length === 0) { alguienCorta = true; quienCorta = j; }
     });
 
-    // ¡AQUÍ ESTABA EL PRIMER ERROR! Faltaba iniciarFaseApuestas()
     if (alguienCorta) {
         faseMus = false;
-        let nombreCorte = quienCorta === 'jugador2' ? "Rival 1" : (quienCorta === 'jugador3' ? "Tu compañero" : "Rival 2");
-        
-        alert(`¡${nombreCorte} corta el Mus porque está servido! Empieza la GRANDE.`);
-        
-        cartasADescartar = [];
-        renderizarCartas(manosActuales);
-        iniciarFaseApuestas(); // <--- CORREGIDO
-        return; 
+        alert(`¡Alguien está servido y corta el Mus! Empieza la ronda de apuestas.`);
+        cartasADescartar = []; renderizarCartas(manosActuales); iniciarFaseApuestas(); return; 
     }
 
-    let totalCartasPedidas = cartasADescartar.length + 
-                             descartesPrevistos['jugador2'].length + 
-                             descartesPrevistos['jugador3'].length + 
-                             descartesPrevistos['jugador4'].length;
+    if (mazoActual.length < 12) return alert("El mazo se ha quedado sin cartas.");
 
-    if (mazoActual.length < totalCartasPedidas) {
-        alert("El mazo se ha quedado sin cartas.");
-        return;
-    }
-
-    cartasADescartar.forEach(index => manosActuales.jugador1[index] = mazoActual.pop());
+    cartasADescartar.forEach(i => manosActuales.jugador1[i] = mazoActual.pop());
     cartasADescartar = [];
-
-    jugadoresIA.forEach(jugador => {
-        descartesPrevistos[jugador].forEach(index => {
-            manosActuales[jugador][index] = mazoActual.pop();
-        });
-    });
+    ['jugador2', 'jugador3', 'jugador4'].forEach(j => descartesPrevistos[j].forEach(i => manosActuales[j][i] = mazoActual.pop()));
 
     renderizarCartas(manosActuales);
 });
 
-// ¡AQUÍ ESTABA EL SEGUNDO ERROR! Faltaba iniciarFaseApuestas()
 document.getElementById('btn-cortar').addEventListener('click', () => {
     if (!faseMus) return;
-    faseMus = false;
-    alert("¡Cortas el Mus! Empieza la ronda de la GRANDE.");
-    
-    cartasADescartar = [];
-    renderizarCartas(manosActuales);
-    iniciarFaseApuestas(); // <--- CORREGIDO
+    faseMus = false; alert("¡Cortas el Mus! Empieza la ronda de apuestas.");
+    cartasADescartar = []; renderizarCartas(manosActuales); iniciarFaseApuestas();
 });
-
 
 // ==========================================
 // 5. MÁQUINA DE ESTADOS E IA DE APUESTAS
@@ -190,6 +142,8 @@ function iniciarFaseApuestas() {
     document.getElementById('panel-descartes').style.display = 'none';
     document.getElementById('panel-apuestas').style.display = 'block';
     
+    // Reseteamos los botes para la nueva ronda
+    botesFase = { GRANDE: 1, CHICA: 1, PARES: 0, JUEGO: 0 };
     indiceFaseActual = 0;
     prepararFaseUI(ordenFases[indiceFaseActual]);
 }
@@ -197,8 +151,6 @@ function iniciarFaseApuestas() {
 function prepararFaseUI(nombreFase) {
     piedrasEnMesa = 0;
     document.getElementById('texto-fase').innerText = `Fase: ${nombreFase}`;
-    
-    // Mostramos tus opciones base, ocultamos las respuestas
     document.getElementById('btn-paso').style.display = 'inline-block';
     document.getElementById('btn-envido').style.display = 'inline-block';
     document.getElementById('btn-ordago').style.display = 'inline-block';
@@ -209,319 +161,187 @@ function prepararFaseUI(nombreFase) {
 function avanzarFase() {
     indiceFaseActual++;
     if (indiceFaseActual < ordenFases.length) {
-        if (ordenFases[indiceFaseActual] === 'PARES') {
-            let resultadoPares = evaluarGanadorPares();
-            if (resultadoPares.id === null) {
-                avanzarFase();
-                return;
-            }
-        }
+        if (ordenFases[indiceFaseActual] === 'PARES' && evaluarGanadorPares().id === null) return avanzarFase();
         prepararFaseUI(ordenFases[indiceFaseActual]);
     } else {
-        alert("Ronda de apuestas terminada. Haz clic en el botón de Test para ver el recuento final.");
+        alert("Apuestas terminadas. Vamos a ver las cartas y repartir los puntos.");
         document.getElementById('panel-apuestas').style.display = 'none';
+        document.getElementById('btn-resolver').style.display = 'inline-block';
     }
 }
 
-// --- INTELIGENCIA ARTIFICIAL (EVALUACIÓN DE FUERZA) ---
 function IA_QuiereApostar(faseActual) {
-    // La IA evalúa en equipo: comprueba si Rival 1 (jugador2) o Rival 2 (jugador4) tienen buenas cartas
-    let manoR1 = manosActuales['jugador2'];
-    let manoR2 = manosActuales['jugador4'];
-
-    function evaluarMano(mano, fase) {
-        if (fase === 'GRANDE') {
-            // Fuerte: Mínimo 2 Reyes (12) o 1 Rey y 1 Caballo (11)
-            let reyes = mano.filter(c => obtenerValorGrande(c) === 12).length;
-            let caballos = mano.filter(c => obtenerValorGrande(c) === 11).length;
-            return reyes >= 2 || (reyes === 1 && caballos >= 1);
-        }
-        if (fase === 'CHICA') {
-            // Fuerte: Mínimo 2 Ases (1) o 1 As y 1 Cuatro
-            let ases = mano.filter(c => obtenerValorGrande(c) === 1).length;
-            let cuatros = mano.filter(c => obtenerValorGrande(c) === 4).length;
-            return ases >= 2 || (ases === 1 && cuatros >= 1);
-        }
-        if (fase === 'PARES') {
-            // Fuerte: Medias (2), Duples (3), o Pares (1) de Reyes/Caballos
-            let pares = evaluarParesJugador(mano);
-            if (pares.categoria >= 2) return true; 
-            if (pares.categoria === 1 && pares.valores[0] >= 11) return true; 
-            return false;
-        }
-        if (fase === 'JUEGO') {
-            // Fuerte: 31 o 32 en Juego. 30 o 29 al Punto.
-            let suma = calcularSumaJuego(mano);
-            return suma === 31 || suma === 32 || suma === 30 || suma === 29;
-        }
+    let mR1 = manosActuales['jugador2'], mR2 = manosActuales['jugador4'];
+    function evaluarM(mano, fase) {
+        if (fase === 'GRANDE') return mano.filter(c => obtenerValorGrande(c) >= 11).length >= 2;
+        if (fase === 'CHICA') return mano.filter(c => obtenerValorGrande(c) <= 2).length >= 2;
+        if (fase === 'PARES') return evaluarParesJugador(mano).categoria >= 2;
+        if (fase === 'JUEGO') return [31, 32, 30, 29].includes(calcularSumaJuego(mano));
         return false;
     }
-
-    return evaluarMano(manoR1, faseActual) || evaluarMano(manoR2, faseActual);
+    return evaluarM(mR1, faseActual) || evaluarM(mR2, faseActual);
 }
 
-// --- INTERACCIÓN DE BOTONES Y FLUJO ---
-
 document.getElementById('btn-paso').addEventListener('click', () => {
-    let fase = ordenFases[indiceFaseActual];
-    let iaApostaria = IA_QuiereApostar(fase);
-    
-    if (iaApostaria) {
-        piedrasEnMesa += 2;
-        alert(`Tú: Paso.\nRivales: ¡Nosotros ENVIDAMOS! (Apuestan 2 piedras)`);
-        
-        // La IA ha apostado, ahora te toca decidir a ti
-        document.getElementById('btn-paso').style.display = 'none';
-        document.getElementById('btn-envido').style.display = 'none';
-        document.getElementById('btn-ordago').style.display = 'none';
-        
-        document.getElementById('btn-quiero').style.display = 'inline-block';
-        document.getElementById('btn-no-quiero').style.display = 'inline-block';
-    } else {
-        console.log(`Ambos equipos pasan en ${fase}.`);
-        avanzarFase();
-    }
+    let f = ordenFases[indiceFaseActual];
+    if (IA_QuiereApostar(f)) {
+        piedrasEnMesa = 2; alert(`Tú: Paso.\nRivales: ¡Nosotros ENVIDAMOS!`);
+        ['btn-paso', 'btn-envido', 'btn-ordago'].forEach(id => document.getElementById(id).style.display = 'none');
+        ['btn-quiero', 'btn-no-quiero'].forEach(id => document.getElementById(id).style.display = 'inline-block');
+    } else avanzarFase();
 });
 
 document.getElementById('btn-envido').addEventListener('click', () => {
-    piedrasEnMesa += 2;
-    let fase = ordenFases[indiceFaseActual];
-    let iaAcepta = IA_QuiereApostar(fase);
-    
-    if (iaAcepta) {
-        alert(`Tú: ¡Envido!\nRivales: ¡QUIERO! (Bote en ${piedrasEnMesa} piedras)`);
-        avanzarFase();
+    piedrasEnMesa = 2; let f = ordenFases[indiceFaseActual];
+    if (IA_QuiereApostar(f)) {
+        alert(`Tú: ¡Envido!\nRivales: ¡QUIERO!`);
+        botesFase[f] = piedrasEnMesa; avanzarFase();
     } else {
-        alert(`Tú: ¡Envido!\nRivales: NO QUIERO. (Te llevas 1 piedra de renuncio)`);
-        avanzarFase();
+        alert(`Tú: ¡Envido!\nRivales: NO QUIERO.`);
+        sumarPuntos('nosotros', 1); botesFase[f] = 0; avanzarFase(); // Llevamos 1 por renuncio, anulamos bote final
     }
 });
 
 document.getElementById('btn-ordago').addEventListener('click', () => {
-    let fase = ordenFases[indiceFaseActual];
-    let iaAcepta = IA_QuiereApostar(fase);
-    
-    if (iaAcepta) {
-        alert(`Tú: ¡ÓRDAGO!\nRivales: ¡ÓRDAGO QUERIDO! (Partida a muerte en ${fase})`);
-        avanzarFase();
+    let f = ordenFases[indiceFaseActual];
+    if (IA_QuiereApostar(f)) {
+        alert(`¡ÓRDAGO QUERIDO! La partida se decide en la ${f}`);
+        botesFase[f] = 40; avanzarFase();
     } else {
-        alert(`Tú: ¡ÓRDAGO!\nRivales: NO QUIERO. (Te llevas 1 piedra)`);
-        avanzarFase();
+        alert(`Rivales: NO QUIERO el Órdago.`);
+        sumarPuntos('nosotros', 1); botesFase[f] = 0; avanzarFase();
     }
 });
 
 document.getElementById('btn-quiero').addEventListener('click', () => {
-    alert(`Tú: Quiero. (Apuesta aceptada)`);
-    avanzarFase();
+    alert(`Apuesta aceptada.`);
+    botesFase[ordenFases[indiceFaseActual]] = piedrasEnMesa; avanzarFase();
 });
 
 document.getElementById('btn-no-quiero').addEventListener('click', () => {
-    alert(`Tú: No quiero. (Los rivales se llevan 1 piedra de renuncio)`);
-    avanzarFase();
+    alert(`Apuesta rechazada. Los rivales se llevan 1 piedra.`);
+    sumarPuntos('ellos', 1); botesFase[ordenFases[indiceFaseActual]] = 0; avanzarFase();
 });
 
-
 // ==========================================
-// 6. MOTOR DE EVALUACIÓN MATEMÁTICA
+// 6. MOTOR DE EVALUACIÓN (Lógica Matemática)
 // ==========================================
-function obtenerValorGrande(carta) {
-    if (carta.numero === 3) return 12; 
-    if (carta.numero === 2) return 1;  
-    return carta.numero;               
-}
-
-function ordenarManoParaGrande(mano) {
-    return [...mano].sort((a, b) => obtenerValorGrande(b) - obtenerValorGrande(a));
-}
-
-function compararManosGrande(manoA, manoB) {
-    let ordenA = ordenarManoParaGrande(manoA);
-    let ordenB = ordenarManoParaGrande(manoB);
+function obtenerValorGrande(c) { return c.numero === 3 ? 12 : (c.numero === 2 ? 1 : c.numero); }
+function ordenarPara(m, fase) { return [...m].sort((a, b) => fase === 'G' ? obtenerValorGrande(b) - obtenerValorGrande(a) : obtenerValorGrande(a) - obtenerValorGrande(b)); }
+function compararManos(mA, mB, fase) {
+    let oA = ordenarPara(mA, fase), oB = ordenarPara(mB, fase);
     for (let i = 0; i < 4; i++) {
-        if (obtenerValorGrande(ordenA[i]) > obtenerValorGrande(ordenB[i])) return 1;
-        if (obtenerValorGrande(ordenB[i]) > obtenerValorGrande(ordenA[i])) return -1;
-    }
-    return 0; 
+        let vA = obtenerValorGrande(oA[i]), vB = obtenerValorGrande(oB[i]);
+        if (fase === 'G' ? vA > vB : vA < vB) return 1;
+        if (fase === 'G' ? vB > vA : vB < vA) return -1;
+    } return 0;
 }
-
-function evaluarGanadorGrande() {
-    const ordenJugadores = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
-    let ganadorActual = 'jugador1';
-    for (let i = 1; i < ordenJugadores.length; i++) {
-        if (compararManosGrande(manosActuales[ganadorActual], manosActuales[ordenJugadores[i]]) === -1) {
-            ganadorActual = ordenJugadores[i];
-        }
-    }
-    return ganadorActual;
+function evaluarFase(fase) {
+    let ganador = 'jugador1', ord = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
+    for (let i = 1; i < 4; i++) if (compararManos(manosActuales[ganador], manosActuales[ord[i]], fase) === -1) ganador = ord[i];
+    return ganador;
 }
+function evaluarGanadorGrande() { return evaluarFase('G'); }
+function evaluarGanadorChica() { return evaluarFase('C'); }
 
-function ordenarManoParaChica(mano) {
-    return [...mano].sort((a, b) => obtenerValorGrande(a) - obtenerValorGrande(b));
-}
-
-function compararManosChica(manoA, manoB) {
-    let ordenA = ordenarManoParaChica(manoA);
-    let ordenB = ordenarManoParaChica(manoB);
-    for (let i = 0; i < 4; i++) {
-        if (obtenerValorGrande(ordenA[i]) < obtenerValorGrande(ordenB[i])) return 1;
-        if (obtenerValorGrande(ordenB[i]) < obtenerValorGrande(ordenA[i])) return -1;
-    }
-    return 0;
-}
-
-function evaluarGanadorChica() {
-    const ordenJugadores = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
-    let ganadorActual = 'jugador1';
-    for (let i = 1; i < ordenJugadores.length; i++) {
-        if (compararManosChica(manosActuales[ganadorActual], manosActuales[ordenJugadores[i]]) === -1) {
-            ganadorActual = ordenJugadores[i];
-        }
-    }
-    return ganadorActual;
-}
-
-function evaluarParesJugador(mano) {
-    let valores = mano.map(carta => obtenerValorGrande(carta));
-    let conteo = {};
-    valores.forEach(v => conteo[v] = (conteo[v] || 0) + 1);
-
-    let parejas = [], trios = [], poker = [];
-    for (let val in conteo) {
-        let v = parseInt(val);
-        if (conteo[val] === 2) parejas.push(v);
-        if (conteo[val] === 3) trios.push(v);
-        if (conteo[val] === 4) poker.push(v);
-    }
-
-    parejas.sort((a, b) => b - a);
-
-    if (poker.length === 1) return { tipo: 'Duples', categoria: 3, valores: [poker[0], poker[0]] };
-    if (parejas.length === 2) return { tipo: 'Duples', categoria: 3, valores: [parejas[0], parejas[1]] };
-    if (trios.length === 1) return { tipo: 'Medias', categoria: 2, valores: [trios[0]] };
-    if (parejas.length === 1) return { tipo: 'Pares', categoria: 1, valores: [parejas[0]] };
-    
+function evaluarParesJugador(m) {
+    let conteo = {}, p = [], t = [], k = [];
+    m.forEach(c => conteo[obtenerValorGrande(c)] = (conteo[obtenerValorGrande(c)] || 0) + 1);
+    for (let val in conteo) { let v = parseInt(val); if(conteo[val]===2) p.push(v); if(conteo[val]===3) t.push(v); if(conteo[val]===4) k.push(v); }
+    p.sort((a, b) => b - a);
+    if (k.length === 1) return { tipo: 'Duples', categoria: 3, valores: [k[0], k[0]] };
+    if (p.length === 2) return { tipo: 'Duples', categoria: 3, valores: [p[0], p[1]] };
+    if (t.length === 1) return { tipo: 'Medias', categoria: 2, valores: [t[0]] };
+    if (p.length === 1) return { tipo: 'Pares', categoria: 1, valores: [p[0]] };
     return { tipo: 'Nada', categoria: 0, valores: [] };
 }
-
-function compararManosPares(paresA, paresB) {
-    if (paresA.categoria > paresB.categoria) return 1;
-    if (paresB.categoria > paresA.categoria) return -1;
-    for (let i = 0; i < paresA.valores.length; i++) {
-        if (paresA.valores[i] > paresB.valores[i]) return 1;
-        if (paresB.valores[i] > paresA.valores[i]) return -1;
-    }
-    return 0;
+function compararPares(pA, pB) {
+    if (pA.categoria > pB.categoria) return 1; if (pB.categoria > pA.categoria) return -1;
+    for (let i = 0; i < pA.valores.length; i++) { if (pA.valores[i] > pB.valores[i]) return 1; if (pB.valores[i] > pA.valores[i]) return -1; } return 0;
 }
-
 function evaluarGanadorPares() {
-    const ordenJugadores = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
-    let ganadorActual = null, mejoresPares = { categoria: 0, valores: [] }, tipoJugada = 'Nada';
-
-    ordenJugadores.forEach(jugador => {
-        let pares = evaluarParesJugador(manosActuales[jugador]);
-        if (pares.categoria > 0) {
-            if (ganadorActual === null || compararManosPares(mejoresPares, pares) === -1) {
-                ganadorActual = jugador;
-                mejoresPares = pares;
-                tipoJugada = pares.tipo;
-            }
-        }
+    let gan = null, mej = { categoria: 0, valores: [] }, tip = 'Nada';
+    ['jugador1', 'jugador2', 'jugador3', 'jugador4'].forEach(j => {
+        let p = evaluarParesJugador(manosActuales[j]);
+        if (p.categoria > 0 && (gan === null || compararPares(mej, p) === -1)) { gan = j; mej = p; tip = p.tipo; }
     });
-    return { id: ganadorActual, jugada: tipoJugada };
+    return { id: gan, jugada: tip, categoria: mej.categoria };
 }
 
-function calcularSumaJuego(mano) {
-    return mano.reduce((total, carta) => total + carta.valorJuego, 0);
-}
-
+function calcularSumaJuego(m) { return m.reduce((t, c) => t + c.valorJuego, 0); }
 function evaluarGanadorJuegoPunto() {
-    const ordenJugadores = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
-    let sumas = {}, hayJuego = false;
-
-    ordenJugadores.forEach(jugador => {
-        let suma = calcularSumaJuego(manosActuales[jugador]);
-        sumas[jugador] = suma;
-        if (suma >= 31) hayJuego = true;
-    });
-
-    let ganadorActual = 'jugador1';
-
+    let sumas = {}, hayJuego = false, ord = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
+    ord.forEach(j => { sumas[j] = calcularSumaJuego(manosActuales[j]); if (sumas[j] >= 31) hayJuego = true; });
+    let gan = 'jugador1';
     if (hayJuego) {
-        const jerarquia = { 31: 1, 32: 2, 40: 3, 37: 4, 36: 5, 35: 6, 34: 7, 33: 8 };
-        let mejorFuerza = sumas['jugador1'] >= 31 ? jerarquia[sumas['jugador1']] : 99;
-        
-        for (let i = 1; i < ordenJugadores.length; i++) {
-            if (sumas[ordenJugadores[i]] >= 31 && jerarquia[sumas[ordenJugadores[i]]] < mejorFuerza) {
-                ganadorActual = ordenJugadores[i];
-                mejorFuerza = jerarquia[sumas[ordenJugadores[i]]];
-            }
-        }
-        return { fase: 'JUEGO', id: ganadorActual, suma: sumas[ganadorActual] };
+        const jer = { 31: 1, 32: 2, 40: 3, 37: 4, 36: 5, 35: 6, 34: 7, 33: 8 };
+        let mejF = sumas['jugador1'] >= 31 ? jer[sumas['jugador1']] : 99;
+        for (let i = 1; i < 4; i++) if (sumas[ord[i]] >= 31 && jer[sumas[ord[i]]] < mejF) { gan = ord[i]; mejF = jer[sumas[ord[i]]]; }
+        return { fase: 'JUEGO', id: gan, suma: sumas[gan] };
     } else {
-        let mejorSuma = sumas['jugador1'];
-        for (let i = 1; i < ordenJugadores.length; i++) {
-            if (sumas[ordenJugadores[i]] > mejorSuma) {
-                ganadorActual = ordenJugadores[i];
-                mejorSuma = sumas[ordenJugadores[i]];
-            }
-        }
-        return { fase: 'PUNTO', id: ganadorActual, suma: mejorSuma };
+        let mejS = sumas['jugador1'];
+        for (let i = 1; i < 4; i++) if (sumas[ord[i]] > mejS) { gan = ord[i]; mejS = sumas[ord[i]]; }
+        return { fase: 'PUNTO', id: gan, suma: mejS };
     }
 }
-
 
 // ==========================================
-// 7. INICIO Y TEST DE PARTIDA
+// 7. RESOLUCIÓN DE LA RONDA Y REPARTO DE PIEDRAS
+// ==========================================
+document.getElementById('btn-resolver').addEventListener('click', () => {
+    // 1. Dar vuelta a las cartas
+    [{ id: 'cartas-j2', mano: manosActuales.jugador2 }, { id: 'cartas-j3', mano: manosActuales.jugador3 }, { id: 'cartas-j4', mano: manosActuales.jugador4 }]
+        .forEach(r => {
+            const cont = document.getElementById(r.id); cont.innerHTML = ''; 
+            r.mano.forEach(c => { const d = document.createElement('div'); d.className = 'carta'; d.innerText = c.nombre; cont.appendChild(d); });
+        });
+
+    // 2. Calcular ganadores
+    let idG = evaluarGanadorGrande(), idC = evaluarGanadorChica(), resP = evaluarGanadorPares(), resJ = evaluarGanadorJuegoPunto();
+    let noms = { 'jugador1': 'Tú', 'jugador2': 'Rival 1', 'jugador3': 'Tu compañero', 'jugador4': 'Rival 2' };
+    
+    // 3. REPARTIR LOS PUNTOS DE LOS BOTES
+    if (botesFase.GRANDE > 0) sumarPuntos(esNuestroEquipo(idG) ? 'nosotros' : 'ellos', botesFase.GRANDE);
+    if (botesFase.CHICA > 0) sumarPuntos(esNuestroEquipo(idC) ? 'nosotros' : 'ellos', botesFase.CHICA);
+    
+    // En pares y juego, se suma el bote apostado MÁS el valor propio de la mano
+    if (resP.id && botesFase.PARES > 0) {
+        let extra = resP.categoria === 3 ? 3 : (resP.categoria === 2 ? 2 : 1); // Duples=3, Medias=2, Pares=1
+        sumarPuntos(esNuestroEquipo(resP.id) ? 'nosotros' : 'ellos', botesFase.PARES + extra);
+    }
+    if (resJ.id && botesFase.JUEGO > 0) {
+        let extra = (resJ.fase === 'JUEGO' && resJ.suma === 31) ? 3 : (resJ.fase === 'JUEGO' ? 2 : 1);
+        sumarPuntos(esNuestroEquipo(resJ.id) ? 'nosotros' : 'ellos', botesFase.JUEGO + extra);
+    }
+
+    // 4. Informe final
+    alert(`RESUMEN DE LA MANO:\n\n` +
+          `GRANDE: Gana ${noms[idG]} (+${botesFase.GRANDE})\n` +
+          `CHICA: Gana ${noms[idC]} (+${botesFase.CHICA})\n` +
+          `PARES: ${resP.id ? `Gana ${noms[resP.id]} con${resP.jugada}` : "Nadie"}\n` +
+          `${resJ.fase}: Gana ${noms[resJ.id]} con ${resJ.suma}`);
+
+    // Alternar botones
+    document.getElementById('btn-resolver').style.display = 'none';
+    document.getElementById('btn-siguiente').style.display = 'inline-block';
+});
+
+document.getElementById('btn-siguiente').addEventListener('click', () => {
+    document.getElementById('btn-siguiente').style.display = 'none';
+    iniciarPartida();
+});
+
+// ==========================================
+// 8. ARRANQUE DEL JUEGO
 // ==========================================
 function iniciarPartida() {
-    let barajaNueva = crearBarajaMus();
-    mazoActual = barajar(barajaNueva);
-    
-    let reparto = repartir(mazoActual);
-    manosActuales = reparto.manos;
-    mazoActual = reparto.mazoSobrante;
+    let barajaNueva = crearBarajaMus(); mazoActual = barajar(barajaNueva);
+    let reparto = repartir(mazoActual); manosActuales = reparto.manos; mazoActual = reparto.mazoSobrante;
 
-    cartasADescartar = [];
-    faseMus = true;
-    
-    // Mostramos panel descartes y ocultamos apuestas
+    cartasADescartar = []; faseMus = true;
     document.getElementById('panel-descartes').style.display = 'block';
     document.getElementById('panel-apuestas').style.display = 'none';
 
     renderizarCartas(manosActuales);
 }
-
 window.onload = iniciarPartida;
-
-document.getElementById('btn-resolver').addEventListener('click', () => {
-    const rivales = [
-        { id: 'cartas-j2', mano: manosActuales.jugador2 },
-        { id: 'cartas-j3', mano: manosActuales.jugador3 },
-        { id: 'cartas-j4', mano: manosActuales.jugador4 }
-    ];
-
-    rivales.forEach(rival => {
-        const contenedor = document.getElementById(rival.id);
-        contenedor.innerHTML = ''; 
-        rival.mano.forEach(carta => {
-            const cartaDiv = document.createElement('div');
-            cartaDiv.className = 'carta'; 
-            cartaDiv.innerText = carta.nombre;
-            contenedor.appendChild(cartaDiv);
-        });
-    });
-
-    let idG = evaluarGanadorGrande();
-    let idC = evaluarGanadorChica();
-    let resP = evaluarGanadorPares();
-    let resJ = evaluarGanadorJuegoPunto();
-    
-    let noms = { 'jugador1': 'Tú', 'jugador2': 'Rival 1', 'jugador3': 'Tu compañero', 'jugador4': 'Rival 2' };
-    let txtPares = resP.id !== null ? `Gana ${noms[resP.id]} con ${resP.jugada}` : "Nadie tiene pares";
-
-    alert(`¡Las cartas están boca arriba!\n\n` +
-          `🏆 GRANDE: Gana ${noms[idG]}\n` +
-          `🏆 CHICA: Gana ${noms[idC]}\n` +
-          `🏆 PARES: ${txtPares}\n` +
-          `🏆 ${resJ.fase}: Gana ${noms[resJ.id]} con ${resJ.suma}`);
-});
