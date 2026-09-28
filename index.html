@@ -1,76 +1,55 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TecniMus</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#122c28">
+  <title>TecniMus · Mus contra la máquina</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="mus.js" defer></script>
 </head>
 <body>
-    <div class="mesa-mus">
-        <!-- Marcador Global -->
-        <div class="marcador">
-            <div class="equipo">
-                <h4>Nosotros</h4>
-                <span id="pts-nosotros">0</span>
-            </div>
-            <div class="equipo">
-                <h4>Ellos</h4>
-                <span id="pts-ellos">0</span>
-            </div>
-        </div>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="brand-icon" aria-hidden="true">✦</span><div><span class="eyebrow">MESA DE JUEGO</span><h1>TecniMus</h1></div></div>
+      <div class="scoreboard" aria-label="Marcador de la partida">
+        <div class="team"><span>Tu equipo</span><strong id="pts-nosotros">0</strong><small>de 40</small></div>
+        <span class="score-divider" aria-hidden="true">:</span>
+        <div class="team"><span>Rivales</span><strong id="pts-ellos">0</strong><small>de 40</small></div>
+      </div>
+      <button type="button" class="reset" id="btn-reiniciar" title="Empezar una partida nueva">↻ <span>Nueva partida</span></button>
+    </header>
 
-        <!-- Rival 1 (Izquierda) -->
-        <div class="jugador rival-izquierda" id="jugador2">
-            <h3>Rival 1</h3>
-            <div class="cartas" id="cartas-j2"></div>
+    <main>
+      <section class="table-section" aria-label="Mesa de mus">
+        <div class="table-topline"><span id="mano-indicador">MANO 1</span><span id="fase-indicador">MUS</span><span id="baraja-indicador">Baraja española · 40 cartas</span></div>
+        <div class="table-wrap">
+          <div class="table-felt">
+            <div class="player partner" id="jugador3"><div class="player-name"><span class="avatar">C</span><span>Compañero <small id="turno-j3"></small></span></div><div class="cards mini" id="cartas-j3"></div></div>
+            <div class="player rival-left" id="jugador2"><div class="player-name"><span class="avatar rival-avatar">1</span><span>Rival 1 <small id="turno-j2"></small></span></div><div class="cards mini" id="cartas-j2"></div></div>
+            <div class="table-center"><span class="center-suit" aria-hidden="true">✦</span><span id="centro-titulo">A repartir</span><span id="centro-subtitulo">Tú decides por tu equipo</span></div>
+            <div class="player rival-right" id="jugador4"><div class="player-name"><span class="avatar rival-avatar">2</span><span>Rival 2 <small id="turno-j4"></small></span></div><div class="cards mini" id="cartas-j4"></div></div>
+            <div class="player human" id="jugador1"><div class="player-name"><span class="avatar human-avatar">T</span><span>Tú <small id="turno-j1"></small></span></div><div class="cards" id="cartas-j1"></div></div>
+          </div>
         </div>
+      </section>
 
-        <!-- Compañero (Arriba) -->
-        <div class="jugador companero" id="jugador3">
-            <h3>Compañero</h3>
-            <div class="cartas" id="cartas-j3"></div>
+      <section class="action-panel" aria-label="Acciones de juego">
+        <div class="action-copy"><span class="eyebrow" id="etapa">TU TURNO</span><h2 id="mensaje">Selecciona las cartas que quieras cambiar.</h2><p id="ayuda">Puedes dar mus sin descartar cartas, o cortar para empezar los lances.</p></div>
+        <div class="actions">
+          <div class="action-group" id="panel-mus"><button type="button" class="button primary" id="btn-mus">Dar mus <span id="cuenta-descartes">(0)</span></button><button type="button" class="button secondary" id="btn-cortar">Cortar mus</button></div>
+          <div class="action-group" id="panel-apuestas" hidden><button type="button" class="button secondary" id="btn-paso">Paso</button><button type="button" class="button primary" id="btn-envido">Envido · 2</button><button type="button" class="button dramatic" id="btn-ordago">Órdago</button></div>
+          <div class="action-group" id="panel-respuesta" hidden><button type="button" class="button primary" id="btn-quiero">Quiero</button><button type="button" class="button secondary" id="btn-no-quiero">No quiero</button></div>
+          <div class="action-group" id="panel-resolver" hidden><button type="button" class="button primary" id="btn-resolver">Mostrar cartas y puntuar</button></div>
+          <div class="action-group" id="panel-siguiente" hidden><button type="button" class="button primary" id="btn-siguiente">Siguiente mano →</button></div>
+          <div class="action-group" id="panel-fin" hidden><button type="button" class="button primary" id="btn-nueva">Jugar otra partida</button></div>
         </div>
+      </section>
 
-        <!-- Rival 2 (Derecha) -->
-        <div class="jugador rival-derecha" id="jugador4">
-            <h3>Rival 2</h3>
-            <div class="cartas" id="cartas-j4"></div>
-        </div>
-
-        <!-- Jugador Principal (Abajo) -->
-        <div class="jugador principal" id="jugador1">
-            <h3>Tú</h3>
-            <div class="cartas" id="cartas-j1"></div>
-            
-            <!-- Controles de acción -->
-            <div class="controles">
-                <div id="panel-descartes">
-                    <button id="btn-mus">Dar Mus</button>
-                    <button id="btn-cortar">Cortar Mus</button>
-                </div>
-
-                <div id="panel-apuestas" style="display: none; background-color: rgba(0,0,0,0.6); padding: 10px; border-radius: 10px;">
-                    <h3 id="texto-fase" style="margin: 0 0 10px 0; color: #f1c40f;">Fase: GRANDE</h3>
-                    
-                    <button id="btn-paso" style="background-color: #34495e;">Paso</button>
-                    <button id="btn-envido" style="background-color: #e67e22;">Envido (2)</button>
-                    <button id="btn-ordago" style="background-color: #8e44ad;">¡Órdago!</button>
-                    
-                    <button id="btn-quiero" style="display: none; background-color: #27ae60;">Quiero</button>
-                    <button id="btn-no-quiero" style="display: none; background-color: #c0392b;">No Quiero</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Botones de Sistema (Test y Siguiente Ronda) -->
-        <div class="controles-sistema">
-            <button id="btn-resolver" style="background-color: #f39c12; display: none;">Resolver Cartas</button>
-            <button id="btn-siguiente" style="background-color: #2980b9; display: none;">Siguiente Ronda</button>
-        </div>
-
-    </div>
-    
-    <script src="mus.js"></script>
+      <div class="below"><section class="round-summary" aria-labelledby="resumen-titulo"><h2 id="resumen-titulo">Resumen de la mano</h2><div id="resumen"><p class="empty">Aquí aparecerán los resultados al descubrir las cartas.</p></div></section><section class="rules" aria-labelledby="reglas-titulo"><h2 id="reglas-titulo">Cómo jugar</h2><p>Selecciona cartas y da mus para cambiarlas. Corta cuando quieras. Tú decides las apuestas de tu equipo; la máquina juega por los rivales.</p><p>Se juegan grande, chica, pares y juego (o punto si nadie tiene juego). En los empates gana quien esté más cerca de la mano. El primer equipo en llegar a 40 piedras gana.</p><p class="variant">Variante: 8 reyes y 8 ases (tres = rey; doses = as). El órdago querido decide la partida al mostrar las cartas.</p></section></div>
+    </main>
+    <footer>TECNI<span>MUS</span> · Una partida, cuatro jugadores, cuarenta piedras.</footer>
+  </div>
+  <div class="sr-only" id="anuncio" role="status" aria-live="polite"></div>
 </body>
 </html>
