@@ -138,6 +138,20 @@ document.getElementById('btn-cortar').addEventListener('click', () => {
 // ==========================================
 // 5. MÁQUINA DE ESTADOS E IA DE APUESTAS
 // ==========================================
+function equipoTienePares(esNosotros) {
+    let j1 = esNosotros ? 'jugador1' : 'jugador2';
+    let j2 = esNosotros ? 'jugador3' : 'jugador4';
+    return evaluarParesJugador(manosActuales[j1]).categoria > 0 ||
+           evaluarParesJugador(manosActuales[j2]).categoria > 0;
+}
+
+function equipoTieneJuego(esNosotros) {
+    let j1 = esNosotros ? 'jugador1' : 'jugador2';
+    let j2 = esNosotros ? 'jugador3' : 'jugador4';
+    return calcularSumaJuego(manosActuales[j1]) >= 31 ||
+           calcularSumaJuego(manosActuales[j2]) >= 31;
+}
+
 function iniciarFaseApuestas() {
     document.getElementById('panel-descartes').style.display = 'none';
     document.getElementById('panel-apuestas').style.display = 'block';
@@ -160,9 +174,40 @@ function prepararFaseUI(nombreFase) {
 
 function avanzarFase() {
     indiceFaseActual++;
+    
     if (indiceFaseActual < ordenFases.length) {
-        if (ordenFases[indiceFaseActual] === 'PARES' && evaluarGanadorPares().id === null) return avanzarFase();
-        prepararFaseUI(ordenFases[indiceFaseActual]);
+        let nombreFase = ordenFases[indiceFaseActual];
+
+        // --- FILTRO DE PARES ---
+        if (nombreFase === 'PARES') {
+            let nosotrosPares = equipoTienePares(true);
+            let ellosPares = equipoTienePares(false);
+            
+            // Si NO es cierto que ambos equipos tengan pares, nos saltamos la apuesta.
+            // (Ya sea porque nadie tiene, o porque solo un equipo tiene).
+            if (!(nosotrosPares && ellosPares)) {
+                return avanzarFase();
+            }
+        }
+
+        // --- FILTRO DE JUEGO / PUNTO ---
+        if (nombreFase === 'JUEGO') {
+            let nosotrosJuego = equipoTieneJuego(true);
+            let ellosJuego = equipoTieneJuego(false);
+
+            if (nosotrosJuego || ellosJuego) {
+                // Hay Juego en la mesa. ¿Ambos tienen para poder pelear?
+                if (!(nosotrosJuego && ellosJuego)) {
+                    return avanzarFase(); // Solo un equipo tiene, no hay apuestas.
+                }
+            } else {
+                // Nadie tiene Juego, así que habilitamos visualmente el PUNTO
+                nombreFase = 'PUNTO';
+            }
+        }
+
+        prepararFaseUI(nombreFase);
+        
     } else {
         alert("Apuestas terminadas. Vamos a ver las cartas y repartir los puntos.");
         document.getElementById('panel-apuestas').style.display = 'none';
@@ -198,9 +243,7 @@ document.getElementById('btn-envido').addEventListener('click', () => {
         botesFase[f] = piedrasEnMesa; avanzarFase();
     } else {
         alert(`Tú: ¡Envido!\nRivales: NO QUIERO.`);
-        sumarPuntos('nosotros', 1); 
-        botesFase[f] = -1; // -1 significa fase anulada por renuncio
-        avanzarFase(); 
+        sumarPuntos('nosotros', 1); botesFase[f] = -1; avanzarFase(); 
     }
 });
 
@@ -211,9 +254,7 @@ document.getElementById('btn-ordago').addEventListener('click', () => {
         botesFase[f] = 40; avanzarFase();
     } else {
         alert(`Rivales: NO QUIERO el Órdago.`);
-        sumarPuntos('nosotros', 1); 
-        botesFase[f] = -1; 
-        avanzarFase();
+        sumarPuntos('nosotros', 1); botesFase[f] = -1; avanzarFase();
     }
 });
 
@@ -224,9 +265,7 @@ document.getElementById('btn-quiero').addEventListener('click', () => {
 
 document.getElementById('btn-no-quiero').addEventListener('click', () => {
     alert(`Apuesta rechazada. Los rivales se llevan 1 piedra.`);
-    sumarPuntos('ellos', 1); 
-    botesFase[ordenFases[indiceFaseActual]] = -1; 
-    avanzarFase();
+    sumarPuntos('ellos', 1); botesFase[ordenFases[indiceFaseActual]] = -1; avanzarFase();
 });
 
 // ==========================================
