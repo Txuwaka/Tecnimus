@@ -52,5 +52,15 @@
     <footer>TECNI<span>MUS</span> · Una partida, cuatro jugadores, cuarenta piedras.</footer>
   </div>
   <div class="sr-only" id="anuncio" role="status" aria-live="polite"></div>
+  
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(registration => console.log('Service Worker registrado'))
+          .catch(error => console.log('Error en el registro del Service Worker:', error));
+      });
+    }
+  </script>
 </body>
 </html>
