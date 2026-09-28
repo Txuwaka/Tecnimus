@@ -313,9 +313,96 @@ function evaluarGanadorChica() {
 
     return ganadorActual;
 }
+// 5.8. Analizar qué tipo de pares tiene una mano
+function evaluarParesJugador(mano) {
+    // 1. Traducir la mano a valores reales del Mus (3->12, 2->1)
+    let valores = mano.map(carta => obtenerValorGrande(carta));
+    
+    // 2. Contar cuántas veces se repite cada carta
+    let conteo = {};
+    valores.forEach(v => {
+        conteo[v] = (conteo[v] || 0) + 1;
+    });
+
+    let parejas = [];
+    let trios = [];
+    let poker = [];
+
+    for (let val in conteo) {
+        let v = parseInt(val);
+        if (conteo[val] === 2) parejas.push(v);
+        if (conteo[val] === 3) trios.push(v);
+        if (conteo[val] === 4) poker.push(v);
+    }
+
+    // Ordenamos las parejas de mayor a menor (útil para cuando hay Duples de dos parejas distintas)
+    parejas.sort((a, b) => b - a);
+
+    // 3. Clasificamos la jugada devolviendo su Categoría y sus Valores para desempatar
+    if (poker.length === 1) {
+        return { tipo: 'Duples', categoria: 3, valores: [poker[0], poker[0]] };
+    }
+    if (parejas.length === 2) {
+        return { tipo: 'Duples', categoria: 3, valores: [parejas[0], parejas[1]] };
+    }
+    if (trios.length === 1) {
+        return { tipo: 'Medias', categoria: 2, valores: [trios[0]] };
+    }
+    if (parejas.length === 1) {
+        return { tipo: 'Pares', categoria: 1, valores: [parejas[0]] };
+    }
+    
+    return { tipo: 'Nada', categoria: 0, valores: [] };
+}
+
+// 5.9. Comparar los pares de dos jugadores
+function compararManosPares(paresA, paresB) {
+    // Gana el de mayor categoría (Ej: Duples gana a Medias)
+    if (paresA.categoria > paresB.categoria) return 1;
+    if (paresB.categoria > paresA.categoria) return -1;
+    
+    // Si empatan en categoría (Ej: Ambos tienen Medias), desempatamos por el valor de la carta
+    for (let i = 0; i < paresA.valores.length; i++) {
+        if (paresA.valores[i] > paresB.valores[i]) return 1;
+        if (paresB.valores[i] > paresA.valores[i]) return -1;
+    }
+
+    return 0; // Empate total (se resolverá por la "mano")
+}
+
+// 5.10. Evaluar quién gana los Pares en la mesa
+function evaluarGanadorPares() {
+    const ordenJugadores = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
+    let ganadorActual = null;
+    let mejoresPares = { categoria: 0, valores: [] };
+    let tipoJugadaGanadora = 'Nada';
+
+    for (let i = 0; i < ordenJugadores.length; i++) {
+        let jugador = ordenJugadores[i];
+        let paresJugador = evaluarParesJugador(manosActuales[jugador]);
+
+        // Solo entramos a comparar si el jugador tiene Pares, Medias o Duples
+        if (paresJugador.categoria > 0) {
+            if (ganadorActual === null) {
+                ganadorActual = jugador;
+                mejoresPares = paresJugador;
+                tipoJugadaGanadora = paresJugador.tipo;
+            } else {
+                let resultado = compararManosPares(mejoresPares, paresJugador);
+                // Si el rival gana estrictamente, le quitamos el puesto
+                if (resultado === -1) {
+                    ganadorActual = jugador;
+                    mejoresPares = paresJugador;
+                    tipoJugadaGanadora = paresJugador.tipo;
+                }
+            }
+        }
+    }
+
+    return { id: ganadorActual, jugada: tipoJugadaGanadora };
+}
 // --- 6. MODO TEST: LEVANTAR CARTAS Y EVALUAR ---
 document.getElementById('btn-resolver').addEventListener('click', () => {
-    // 1. Damos la vuelta a las cartas de los rivales
     const rivales = [
         { id: 'cartas-j2', mano: manosActuales.jugador2 },
         { id: 'cartas-j3', mano: manosActuales.jugador3 },
@@ -334,9 +421,9 @@ document.getElementById('btn-resolver').addEventListener('click', () => {
         });
     });
 
-    // 2. Calculamos los ganadores de ambas fases
     let idGanadorGrande = evaluarGanadorGrande();
     let idGanadorChica = evaluarGanadorChica();
+    let resultadoPares = evaluarGanadorPares();
     
     let nombres = {
         'jugador1': 'Tú',
@@ -345,8 +432,14 @@ document.getElementById('btn-resolver').addEventListener('click', () => {
         'jugador4': 'Rival 2'
     };
 
-    // 3. Mostramos el resultado
+    // Formateamos el texto de los pares dependiendo de si alguien tuvo o no
+    let textoPares = "Nadie tiene pares";
+    if (resultadoPares.id !== null) {
+        textoPares = `Gana ${nombres[resultadoPares.id]} con ${resultadoPares.jugada}`;
+    }
+
     alert(`¡Las cartas están boca arriba!\n\n` +
           `🏆 GRANDE: Gana ${nombres[idGanadorGrande]}\n` +
-          `🏆 CHICA: Gana ${nombres[idGanadorChica]}`);
+          `🏆 CHICA: Gana ${nombres[idGanadorChica]}\n` +
+          `🏆 PARES: ${textoPares}`);
 });
