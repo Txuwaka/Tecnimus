@@ -306,35 +306,66 @@ document.getElementById('btn-resolver').addEventListener('click', () => {
     let idG = evaluarGanadorGrande(), idC = evaluarGanadorChica(), resP = evaluarGanadorPares(), resJ = evaluarGanadorJuegoPunto();
     let noms = { 'jugador1': 'Tú', 'jugador2': 'Rival 1', 'jugador3': 'Tu compañero', 'jugador4': 'Rival 2' };
     
-    // 3. REPARTIR LOS PUNTOS DE LOS BOTES
-    if (botesFase.GRANDE > 0) sumarPuntos(esNuestroEquipo(idG) ? 'nosotros' : 'ellos', botesFase.GRANDE);
-    if (botesFase.CHICA > 0) sumarPuntos(esNuestroEquipo(idC) ? 'nosotros' : 'ellos', botesFase.CHICA);
+    // 3. REPARTIR LOS PUNTOS AL EQUIPO GANADOR
     
-    // En pares y juego, se suma el bote apostado MÁS el valor propio de la mano
-    if (resP.id && botesFase.PARES > 0) {
-        let extra = resP.categoria === 3 ? 3 : (resP.categoria === 2 ? 2 : 1); // Duples=3, Medias=2, Pares=1
-        sumarPuntos(esNuestroEquipo(resP.id) ? 'nosotros' : 'ellos', botesFase.PARES + extra);
+    // Grande y Chica: Sumamos el bote, o 1 si todos habían dicho "Paso" (bote === 0)
+    if (botesFase.GRANDE !== -1) sumarPuntos(esNuestroEquipo(idG) ? 'nosotros' : 'ellos', Math.max(1, botesFase.GRANDE));
+    if (botesFase.CHICA !== -1) sumarPuntos(esNuestroEquipo(idC) ? 'nosotros' : 'ellos', Math.max(1, botesFase.CHICA));
+    
+    // Pares: Suma el bote apostado MÁS el valor de los pares de los DOS miembros del equipo
+    let textoParesExtra = "";
+    if (resP.id && botesFase.PARES !== -1) {
+        let equipoGana = esNuestroEquipo(resP.id) ? 'nosotros' : 'ellos';
+        let equipoNombres = equipoGana === 'nosotros' ? ['jugador1', 'jugador3'] : ['jugador2', 'jugador4'];
+        let puntosExtra = 0;
+
+        // Comprobamos los pares de los dos jugadores
+        equipoNombres.forEach(j => {
+            let p = evaluarParesJugador(manosActuales[j]);
+            if (p.categoria === 3) puntosExtra += 3; // Duples
+            if (p.categoria === 2) puntosExtra += 2; // Medias
+            if (p.categoria === 1) puntosExtra += 1; // Pares
+        });
+
+        let totalPares = botesFase.PARES + puntosExtra;
+        sumarPuntos(equipoGana, totalPares);
+        textoParesExtra = ` (+${totalPares})`;
     }
-    if (resJ.id && botesFase.JUEGO > 0) {
-        let extra = (resJ.fase === 'JUEGO' && resJ.suma === 31) ? 3 : (resJ.fase === 'JUEGO' ? 2 : 1);
-        sumarPuntos(esNuestroEquipo(resJ.id) ? 'nosotros' : 'ellos', botesFase.JUEGO + extra);
+
+    // Juego o Punto: Suma bote MÁS el valor del juego de los DOS miembros
+    let textoJuegoExtra = "";
+    if (resJ.id && botesFase.JUEGO !== -1) {
+        let equipoGana = esNuestroEquipo(resJ.id) ? 'nosotros' : 'ellos';
+        let equipoNombres = equipoGana === 'nosotros' ? ['jugador1', 'jugador3'] : ['jugador2', 'jugador4'];
+        let puntosExtra = 0;
+
+        if (resJ.fase === 'JUEGO') {
+            // Comprobamos los juegos de los dos jugadores
+            equipoNombres.forEach(j => {
+                let suma = calcularSumaJuego(manosActuales[j]);
+                if (suma === 31) puntosExtra += 3;
+                else if (suma >= 32) puntosExtra += 2;
+            });
+        } else {
+            // Si es punto, solo se lleva 1 punto en total el equipo ganador
+            puntosExtra = 1;
+        }
+
+        let totalJuego = botesFase.JUEGO + puntosExtra;
+        sumarPuntos(equipoGana, totalJuego);
+        textoJuegoExtra = ` (+${totalJuego})`;
     }
 
     // 4. Informe final
     alert(`RESUMEN DE LA MANO:\n\n` +
-          `GRANDE: Gana ${noms[idG]} (+${botesFase.GRANDE})\n` +
-          `CHICA: Gana ${noms[idC]} (+${botesFase.CHICA})\n` +
-          `PARES: ${resP.id ? `Gana ${noms[resP.id]} con${resP.jugada}` : "Nadie"}\n` +
-          `${resJ.fase}: Gana ${noms[resJ.id]} con ${resJ.suma}`);
+          `GRANDE: Gana ${noms[idG]} (+${botesFase.GRANDE !== -1 ? Math.max(1, botesFase.GRANDE) : 0})\n` +
+          `CHICA: Gana ${noms[idC]} (+${botesFase.CHICA !== -1 ? Math.max(1, botesFase.CHICA) : 0})\n` +
+          `PARES: ${resP.id ? `Gana ${noms[resP.id]}${textoParesExtra}` : "Nadie"}\n` +
+          `${resJ.fase}: Gana ${noms[resJ.id]} con ${resJ.suma}${textoJuegoExtra}`);
 
     // Alternar botones
     document.getElementById('btn-resolver').style.display = 'none';
     document.getElementById('btn-siguiente').style.display = 'inline-block';
-});
-
-document.getElementById('btn-siguiente').addEventListener('click', () => {
-    document.getElementById('btn-siguiente').style.display = 'none';
-    iniciarPartida();
 });
 
 // ==========================================
