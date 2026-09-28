@@ -198,7 +198,9 @@ document.getElementById('btn-envido').addEventListener('click', () => {
         botesFase[f] = piedrasEnMesa; avanzarFase();
     } else {
         alert(`Tú: ¡Envido!\nRivales: NO QUIERO.`);
-        sumarPuntos('nosotros', 1); botesFase[f] = 0; avanzarFase(); // Llevamos 1 por renuncio, anulamos bote final
+        sumarPuntos('nosotros', 1); 
+        botesFase[f] = -1; // -1 significa fase anulada por renuncio
+        avanzarFase(); 
     }
 });
 
@@ -209,7 +211,9 @@ document.getElementById('btn-ordago').addEventListener('click', () => {
         botesFase[f] = 40; avanzarFase();
     } else {
         alert(`Rivales: NO QUIERO el Órdago.`);
-        sumarPuntos('nosotros', 1); botesFase[f] = 0; avanzarFase();
+        sumarPuntos('nosotros', 1); 
+        botesFase[f] = -1; 
+        avanzarFase();
     }
 });
 
@@ -220,7 +224,9 @@ document.getElementById('btn-quiero').addEventListener('click', () => {
 
 document.getElementById('btn-no-quiero').addEventListener('click', () => {
     alert(`Apuesta rechazada. Los rivales se llevan 1 piedra.`);
-    sumarPuntos('ellos', 1); botesFase[ordenFases[indiceFaseActual]] = 0; avanzarFase();
+    sumarPuntos('ellos', 1); 
+    botesFase[ordenFases[indiceFaseActual]] = -1; 
+    avanzarFase();
 });
 
 // ==========================================
