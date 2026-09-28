@@ -463,6 +463,82 @@ function evaluarGanadorJuegoPunto() {
         return { fase: 'PUNTO', id: ganadorActual, suma: mejorSuma };
     }
 }
+// --- 5.13. MÁQUINA DE ESTADOS: FASES DE APUESTAS ---
+const ordenFases = ['GRANDE', 'CHICA', 'PARES', 'JUEGO'];
+let indiceFaseActual = 0;
+let piedrasEnMesa = 0;
+
+function iniciarFaseApuestas() {
+    // Cambiamos la interfaz
+    document.getElementById('panel-descartes').style.display = 'none';
+    document.getElementById('panel-apuestas').style.display = 'block';
+    
+    indiceFaseActual = 0;
+    prepararFaseUI(ordenFases[indiceFaseActual]);
+}
+
+function prepararFaseUI(nombreFase) {
+    piedrasEnMesa = 0;
+    document.getElementById('texto-fase').innerText = `Fase: ${nombreFase}`;
+    
+    // Mostramos botones base, ocultamos respuestas
+    document.getElementById('btn-paso').style.display = 'inline-block';
+    document.getElementById('btn-envido').style.display = 'inline-block';
+    document.getElementById('btn-ordago').style.display = 'inline-block';
+    document.getElementById('btn-quiero').style.display = 'none';
+    document.getElementById('btn-no-quiero').style.display = 'none';
+}
+
+function avanzarFase() {
+    indiceFaseActual++;
+    if (indiceFaseActual < ordenFases.length) {
+        // Excepción lógica: Si toca PARES, comprobamos si alguien los tiene. 
+        // Si nadie tiene, nos la saltamos automáticamente.
+        if (ordenFases[indiceFaseActual] === 'PARES') {
+            let resultadoPares = evaluarGanadorPares();
+            if (resultadoPares.id === null) {
+                console.log("Nadie tiene pares. Saltando a JUEGO...");
+                avanzarFase();
+                return;
+            }
+        }
+        prepararFaseUI(ordenFases[indiceFaseActual]);
+    } else {
+        alert("Ronda de apuestas terminada. Haz clic en el botón de Test para ver el recuento final.");
+        // Ocultamos el panel porque ya no hay más que apostar
+        document.getElementById('panel-apuestas').style.display = 'none';
+    }
+}
+
+// Eventos de los botones de apuestas
+document.getElementById('btn-paso').addEventListener('click', () => {
+    console.log(`Tú: Paso en ${ordenFases[indiceFaseActual]}`);
+    // Simulación temporal: los 3 bots también pasan.
+    avanzarFase();
+});
+
+document.getElementById('btn-envido').addEventListener('click', () => {
+    piedrasEnMesa += 2;
+    console.log(`Tú: ¡Envido! Bote: ${piedrasEnMesa}`);
+    
+    // Ocultamos las acciones y mostramos las opciones de respuesta para el rival
+    document.getElementById('btn-paso').style.display = 'none';
+    document.getElementById('btn-envido').style.display = 'none';
+    document.getElementById('btn-ordago').style.display = 'none';
+    
+    document.getElementById('btn-quiero').style.display = 'inline-block';
+    document.getElementById('btn-no-quiero').style.display = 'inline-block';
+});
+
+document.getElementById('btn-quiero').addEventListener('click', () => {
+    console.log(`Apuesta aceptada. Piedras jugadas: ${piedrasEnMesa}`);
+    avanzarFase();
+});
+
+document.getElementById('btn-no-quiero').addEventListener('click', () => {
+    console.log(`Apuesta rechazada. Te llevas 1 piedra de renuncio.`);
+    avanzarFase();
+});
 // --- 6. MODO TEST: LEVANTAR CARTAS Y EVALUAR TODAS LAS FASES ---
 document.getElementById('btn-resolver').addEventListener('click', () => {
     const rivales = [
