@@ -99,3 +99,30 @@ button:hover {
     border: 2px solid #f1c40f;
     box-shadow: 0 0 10px #f1c40f;
 }
+
+.marcador {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background-color: rgba(44, 62, 80, 0.9);
+    padding: 10px 20px;
+    border-radius: 10px;
+    display: flex;
+    gap: 20px;
+    border: 2px solid #f1c40f;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    z-index: 10;
+}
+
+.equipo { text-align: center; }
+.equipo h4 { margin: 0 0 5px 0; color: #f1c40f; font-size: 14px; text-transform: uppercase;}
+.equipo span { font-size: 28px; font-weight: bold; }
+
+.controles-sistema {
+    position: absolute;
+    bottom: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+}
