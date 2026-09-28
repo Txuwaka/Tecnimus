@@ -401,7 +401,69 @@ function evaluarGanadorPares() {
 
     return { id: ganadorActual, jugada: tipoJugadaGanadora };
 }
-// --- 6. MODO TEST: LEVANTAR CARTAS Y EVALUAR ---
+// 5.11. Calcular la suma total de las cartas de una mano
+function calcularSumaJuego(mano) {
+    // Usamos 'reduce' para sumar rápidamente el valorJuego de las 4 cartas
+    return mano.reduce((total, carta) => total + carta.valorJuego, 0);
+}
+
+// 5.12. Evaluar quién gana el Juego o el Punto
+function evaluarGanadorJuegoPunto() {
+    const ordenJugadores = ['jugador1', 'jugador2', 'jugador3', 'jugador4'];
+    let sumas = {};
+    let hayJuego = false;
+
+    // Calculamos las sumas de todos y comprobamos si alguien tiene Juego
+    ordenJugadores.forEach(jugador => {
+        let suma = calcularSumaJuego(manosActuales[jugador]);
+        sumas[jugador] = suma;
+        if (suma >= 31) hayJuego = true;
+    });
+
+    let ganadorActual = 'jugador1';
+
+    if (hayJuego) {
+        // --- LÓGICA DE JUEGO ---
+        // Mapa de fuerza: menor número = mejor jugada
+        const jerarquiaJuego = { 31: 1, 32: 2, 40: 3, 37: 4, 36: 5, 35: 6, 34: 7, 33: 8 };
+        
+        // Si el jugador actual no tiene juego, le asignamos una fuerza de 99 (pierde seguro)
+        let mejorFuerza = sumas['jugador1'] >= 31 ? jerarquiaJuego[sumas['jugador1']] : 99;
+        
+        for (let i = 1; i < ordenJugadores.length; i++) {
+            let rival = ordenJugadores[i];
+            let sumaRival = sumas[rival];
+            
+            if (sumaRival >= 31) {
+                let fuerzaRival = jerarquiaJuego[sumaRival];
+                // Si la fuerza es menor (es mejor jugada), nos roba el liderato
+                // En caso de empate, mantenemos el liderato por ser "mano"
+                if (fuerzaRival < mejorFuerza) {
+                    ganadorActual = rival;
+                    mejorFuerza = fuerzaRival;
+                }
+            }
+        }
+        return { fase: 'JUEGO', id: ganadorActual, suma: sumas[ganadorActual] };
+        
+    } else {
+        // --- LÓGICA DE PUNTO ---
+        // Simplemente la suma más alta gana
+        let mejorSuma = sumas['jugador1'];
+
+        for (let i = 1; i < ordenJugadores.length; i++) {
+            let rival = ordenJugadores[i];
+            let sumaRival = sumas[rival];
+            
+            if (sumaRival > mejorSuma) {
+                ganadorActual = rival;
+                mejorSuma = sumaRival;
+            }
+        }
+        return { fase: 'PUNTO', id: ganadorActual, suma: mejorSuma };
+    }
+}
+// --- 6. MODO TEST: LEVANTAR CARTAS Y EVALUAR TODAS LAS FASES ---
 document.getElementById('btn-resolver').addEventListener('click', () => {
     const rivales = [
         { id: 'cartas-j2', mano: manosActuales.jugador2 },
@@ -409,6 +471,7 @@ document.getElementById('btn-resolver').addEventListener('click', () => {
         { id: 'cartas-j4', mano: manosActuales.jugador4 }
     ];
 
+    // Levantar cartas
     rivales.forEach(rival => {
         const contenedor = document.getElementById(rival.id);
         contenedor.innerHTML = ''; 
@@ -421,9 +484,11 @@ document.getElementById('btn-resolver').addEventListener('click', () => {
         });
     });
 
+    // Calcular ganadores
     let idGanadorGrande = evaluarGanadorGrande();
     let idGanadorChica = evaluarGanadorChica();
     let resultadoPares = evaluarGanadorPares();
+    let resultadoJuego = evaluarGanadorJuegoPunto();
     
     let nombres = {
         'jugador1': 'Tú',
@@ -432,14 +497,14 @@ document.getElementById('btn-resolver').addEventListener('click', () => {
         'jugador4': 'Rival 2'
     };
 
-    // Formateamos el texto de los pares dependiendo de si alguien tuvo o no
-    let textoPares = "Nadie tiene pares";
-    if (resultadoPares.id !== null) {
-        textoPares = `Gana ${nombres[resultadoPares.id]} con ${resultadoPares.jugada}`;
-    }
+    let textoPares = resultadoPares.id !== null 
+        ? `Gana ${nombres[resultadoPares.id]} con ${resultadoPares.jugada}` 
+        : "Nadie tiene pares";
 
+    // Mostrar el resumen final
     alert(`¡Las cartas están boca arriba!\n\n` +
           `🏆 GRANDE: Gana ${nombres[idGanadorGrande]}\n` +
           `🏆 CHICA: Gana ${nombres[idGanadorChica]}\n` +
-          `🏆 PARES: ${textoPares}`);
+          `🏆 PARES: ${textoPares}\n` +
+          `🏆 ${resultadoJuego.fase}: Gana ${nombres[resultadoJuego.id]} con ${resultadoJuego.suma}`);
 });
