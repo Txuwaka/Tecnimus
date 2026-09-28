@@ -94,7 +94,25 @@ function renderizarCartas(manos) {
     });
 }
 
-// --- 3. LÓGICA DE LOS BOTONES ---
+// --- 3. INTELIGENCIA ARTIFICIAL DE DESCARTES ---
+
+function decidirDescartesIA(mano) {
+    let cartasTirar = [];
+    
+    // Regla v1.0: Descartar todas las cartas que sean 4, 5, 6 o 7.
+    // (Más adelante le enseñaremos a no tirarlas si forman pares)
+    mano.forEach((carta, index) => {
+        if (carta.numero >= 4 && carta.numero <= 7) {
+            cartasTirar.push(index);
+        }
+    });
+    
+    return cartasTirar;
+}
+
+
+// --- 4. LÓGICA DE LOS BOTONES Y FLUJO DE DESCARTE ---
+
 document.getElementById('btn-mus').addEventListener('click', () => {
     if (!faseMus) return;
 
@@ -103,36 +121,85 @@ document.getElementById('btn-mus').addEventListener('click', () => {
         return;
     }
 
-    if (mazoActual.length < cartasADescartar.length) {
-        alert("No quedan cartas suficientes en el mazo.");
+    // --- FASE 1: LOS BOTS DECIDEN SI QUIEREN MUS O CORTAN ---
+    let alguienCorta = false;
+    let quienCorta = "";
+    let descartesPrevistos = {};
+    const jugadoresIA = ['jugador2', 'jugador3', 'jugador4'];
+
+    jugadoresIA.forEach(jugador => {
+        descartesPrevistos[jugador] = decidirDescartesIA(manosActuales[jugador]);
+        
+        // Si un bot tiene cartas tan buenas que decide tirar 0, corta el Mus.
+        if (descartesPrevistos[jugador].length === 0) {
+            alguienCorta = true;
+            quienCorta = jugador;
+        }
+    });
+
+    // Si alguien corta, se cancelan los descartes de todo el mundo
+    if (alguienCorta) {
+        faseMus = false;
+        
+        // Traducir el ID del jugador a un nombre amigable
+        let nombreCorte = "Rival 2";
+        if (quienCorta === 'jugador2') nombreCorte = "Rival 1";
+        if (quienCorta === 'jugador3') nombreCorte = "Tu compañero";
+        
+        alert(`¡${nombreCorte} corta el Mus porque está servido! Empieza la GRANDE.`);
+        
+        document.getElementById('btn-mus').style.opacity = '0.5';
+        document.getElementById('btn-cortar').style.opacity = '0.5';
+        cartasADescartar = [];
+        renderizarCartas(manosActuales);
+        return; 
+    }
+
+    // --- FASE 2: NADIE CORTÓ, TODOS DESCARTAN ---
+    
+    // Comprobación de seguridad para el mazo
+    let totalCartasPedidas = cartasADescartar.length + 
+                             descartesPrevistos['jugador2'].length + 
+                             descartesPrevistos['jugador3'].length + 
+                             descartesPrevistos['jugador4'].length;
+
+    if (mazoActual.length < totalCartasPedidas) {
+        alert("El mazo se ha quedado sin cartas. (Lógica de re-barajar pendientes)");
         return;
     }
 
-    // Robar cartas nuevas del mazo y sustituir las descartadas
+    // Tu descarte
     cartasADescartar.forEach(index => {
         manosActuales.jugador1[index] = mazoActual.pop();
     });
-
-    // Resetear la selección y redibujar
     cartasADescartar = [];
+
+    // Descarte de la IA
+    jugadoresIA.forEach(jugador => {
+        descartesPrevistos[jugador].forEach(index => {
+            manosActuales[jugador][index] = mazoActual.pop();
+        });
+        console.log(`${jugador} descartó ${descartesPrevistos[jugador].length} cartas.`);
+    });
+
+    // Actualizamos la mesa
     renderizarCartas(manosActuales);
-    
-    console.log("Cartas restantes en mazo tras tu descarte:", mazoActual.length);
+    console.log("Cartas restantes en mazo:", mazoActual.length);
 });
 
 document.getElementById('btn-cortar').addEventListener('click', () => {
     if (!faseMus) return;
     faseMus = false;
-    alert("¡Se corta el Mus! Empieza la ronda de la GRANDE.");
+    alert("¡Cortas el Mus! Empieza la ronda de la GRANDE.");
     
-    // Apagar botones y resetear selecciones
     document.getElementById('btn-mus').style.opacity = '0.5';
     document.getElementById('btn-cortar').style.opacity = '0.5';
     cartasADescartar = [];
     renderizarCartas(manosActuales);
 });
 
-// --- 4. INICIO DE PARTIDA ---
+// Recuerda que debajo de esto debe seguir estando la sección: 
+// // --- 5. INICIO DE PARTIDA ---
 let mazoActual = [];
 let manosActuales = {};
 
