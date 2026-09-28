@@ -53,3 +53,43 @@
 }
 .table-center .turn-feed{display:block;margin-top:5px;padding:4px 7px;border-radius:999px;background:#0b352b99;color:#f4dda6;font-size:9px!important;font-family:'DM Sans',system-ui,sans-serif!important;font-weight:700;line-height:1.25;letter-spacing:.02em;max-width:250px;white-space:normal}
 @media(max-width:560px){.table-center .turn-feed{font-size:7px!important;max-width:150px;padding:3px 5px}}
+
+/* ===== Alpha 3 · baraja ilustrada con los recursos del usuario ===== */
+.card{overflow:hidden}
+.card .suit-art{display:flex;align-items:center;justify-content:center;width:57px;height:69px;margin-top:0;line-height:0}
+.card .suit-image{display:block;max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 2px 1px #3a2b1c33);user-select:none;pointer-events:none}
+.card .card-name{position:absolute;left:4px;right:4px;bottom:8px;margin:0;text-align:center;font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:#4f493d}
+
+.card.figure{position:relative;padding:0;background:#fff8e8;box-shadow:inset 0 0 0 2px #d4a85d,0 5px 8px #0a271d88}
+.card.figure .figure-art{position:absolute;inset:8px 7px 18px;width:auto;height:auto;margin:0;display:flex;align-items:flex-end;justify-content:center;line-height:0}
+.card.figure .figure-image{display:block;width:100%;height:100%;object-fit:contain;object-position:center bottom;user-select:none;pointer-events:none}
+.card.figure-12 .figure-art{inset:4px 4px 15px}
+.card.figure-12 .figure-image{object-fit:cover;object-position:center 18%;border-radius:5px;filter:saturate(.92) contrast(.98)}
+.card.figure .figure-suit{position:absolute;right:5px;top:5px;width:18px;height:18px;display:grid;place-items:center;padding:2px;border-radius:50%;background:#fff9eadd;box-shadow:0 1px 3px #0004;z-index:2}
+.card.figure .figure-suit .suit-image{max-width:100%;max-height:100%;filter:none}
+.card.figure .figure-caption{position:absolute;left:4px;right:4px;bottom:4px;padding:2px 2px;border-radius:3px;background:#f3dfafd9;color:#2c332f;font-size:5.5px;font-weight:800;letter-spacing:.04em;text-align:center;white-space:nowrap;z-index:2}
+.card.figure .corner{z-index:3;text-shadow:0 1px #fff}
+.card.figure .corner.bottom{display:none}
+
+.mini .card .suit-art{width:31px;height:39px}
+.mini .card .card-name{font-size:5px;bottom:3px}
+.mini .card.figure .figure-art{inset:3px 3px 4px;width:auto;height:auto}
+.mini .card.figure .figure-suit{width:11px;height:11px;right:2px;top:2px;padding:1px}
+.mini .card.figure .figure-caption{display:none}
+.mini .card.figure .corner{font-size:8px;top:2px;left:3px}
+
+/* Burbuja de la última acción: permite seguir visualmente lo que hace el compañero. */
+.player[data-call]:not([data-call=""])::after{content:attr(data-call);position:absolute;left:50%;top:-23px;transform:translateX(-50%);z-index:8;white-space:nowrap;padding:4px 7px;border-radius:999px;background:#f4d68e;color:#17362d;font-size:8px;font-weight:900;letter-spacing:.05em;box-shadow:0 3px 9px #071c1666;border:1px solid #6f5528}
+.player.is-active[data-call]:not([data-call=""])::after{background:#fff0b8;box-shadow:0 0 0 2px #17362d88,0 4px 12px #071c1666}
+
+@media(max-width:560px){
+  .human .card .suit-art{width:44px;height:54px}
+  .human .card .card-name{font-size:6px;bottom:5px}
+  .human .card.figure .figure-art{inset:6px 5px 12px;width:auto;height:auto}
+  .human .card.figure-12 .figure-art{inset:3px 3px 10px}
+  .human .card.figure .figure-caption{font-size:4.5px;bottom:2px}
+  .human .card.figure .figure-suit{width:14px;height:14px;right:3px;top:3px}
+  .mini .card .suit-art{width:23px;height:31px}
+  .mini .card.figure .figure-art{inset:2px 2px 3px;width:auto;height:auto}
+  .player[data-call]:not([data-call=""])::after{top:-19px;font-size:6px;padding:3px 5px}
+}

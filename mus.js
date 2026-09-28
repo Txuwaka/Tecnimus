@@ -96,18 +96,21 @@ if(typeof document!=='undefined'){
   const figureName={10:'SOTA',11:'CABALLO',12:'REY'};
   const cardNumber={1:'1',10:'10',11:'11',12:'12'};
 
-  // Dibujos propios de los cuatro palos españoles.
-  const suitIcon={
-    Oros:'<circle cx="16" cy="16" r="12"/><circle cx="16" cy="16" r="9"/><path d="m16 8 1.9 5.7L24 16l-6.1 2.3L16 24l-1.9-5.7L8 16l6.1-2.3Z"/>',
-    Copas:'<path d="M6 5h20l-1.7 9.2C23.5 19 20.7 21 16 21s-7.5-2-8.3-6.8L6 5Z"/><path d="M16 21v6M10 28h12"/><path d="M7 9H4c0 4 2 6 5 6M25 9h3c0 4-2 6-5 6"/>',
-    Espadas:'<path d="m16 2 3.2 4.5-2 13.5-1.2 2-1.2-2-2-13.5L16 2Z"/><path d="M9 21h14M16 22v6M13 29h6"/><path d="m9 21-2-3m16 3 2-3"/>',
-    Bastos:'<path d="M11 28 20.5 6.5a3.2 3.2 0 0 1 6 2.6L16 29Z"/><path d="m17 14 5 2m-7 3 5 2m-7 3 5 2"/><circle cx="24" cy="7" r="1"/>'
+  // Recursos gráficos personalizados creados para TecniMus.
+  const suitAsset={
+    Oros:'assets/oros.png',
+    Copas:'assets/copas.png',
+    Espadas:'assets/espadas.png',
+    Bastos:'assets/bastos.png'
   };
+  const figureAsset={10:'assets/sota.png',11:'assets/caballo.png',12:'assets/rey.jpg'};
+  const AI_DELAY=850;
+
 
   const state={
     scores:{nosotros:0,ellos:0},handNumber:0,mano:0,hands:{},deck:[],discard:[],selected:new Set(),musTurns:0,
     stage:'mus',phases:[],phaseIndex:0,bets:{},pending:null,revealed:false,note:'',result:[],
-    cutter:null,actor:'jugador1',lastActor:null,lastAction:'',actionLog:[]
+    cutter:null,actor:'jugador1',lastActor:null,lastAction:'',actionLog:[],flowToken:0
   };
 
   function announce(message){$('anuncio').textContent=message;}
@@ -126,34 +129,13 @@ if(typeof document!=='undefined'){
     }
   }
 
-  function emblemSvg(palo){
-    return '<g transform="translate(31 48) scale(.62) translate(-16 -16)" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'+suitIcon[palo]+'</g>';
+  function schedule(fn,delay=AI_DELAY){
+    const token=state.flowToken;
+    window.setTimeout(()=>{if(state.flowToken===token)fn();},delay);
   }
 
-  // Figuras originales y ligeras: no dependen de imágenes externas y escalan bien en móvil.
-  function figureSvg(card){
-    const emblem=emblemSvg(card.palo);
-    const frame='<rect x="3" y="3" width="58" height="72" rx="6" class="figure-frame"/>';
-    let art='';
-    if(card.numero===10){
-      art='<path class="figure-cloth" d="M17 64c2-15 7-23 15-23s13 8 15 23Z"/>'+
-          '<circle class="figure-skin" cx="32" cy="27" r="10"/>'+
-          '<path d="M22 25c2-10 17-13 21-2-5-2-7-7-16-4-3 1-4 4-5 6Z"/>'+
-          '<path d="M27 31c3 2 7 2 10 0M29 25h1m5 0h1"/>'+
-          '<path d="M21 49h22M25 43l-6-7M39 43l6-7"/>';
-    }else if(card.numero===11){
-      art='<path class="horse" d="M14 58c4-12 7-21 12-27l-4-10 8 5c5-3 11-1 15 5l5 8-8-1-4 8c-2 5-2 11-1 18Z"/>'+
-          '<circle class="figure-skin" cx="26" cy="20" r="7"/>'+
-          '<path class="figure-cloth" d="M21 29c7-4 13-1 17 6l-8 12-10-7Z"/>'+
-          '<path d="M19 17c3-7 12-8 15-1M24 21h1m4 0h1M34 38l8 9M41 47l6-2"/>';
-    }else{
-      art='<path class="figure-cloth" d="M15 66c1-18 7-27 17-27s16 9 17 27Z"/>'+
-          '<circle class="figure-skin" cx="32" cy="29" r="10"/>'+
-          '<path class="crown" d="M21 19l3-11 7 7 6-9 5 12Z"/>'+
-          '<path d="M24 31c5 4 11 4 16 0M27 27h1m8 0h1M27 38l5 5 5-5M21 52h22"/>'+
-          '<path class="beard" d="M24 34c2 11 14 14 17 0-5 5-12 6-17 0Z"/>';
-    }
-    return '<svg viewBox="0 0 64 78" aria-hidden="true">'+frame+art+emblem+'</svg>';
+  function imageTag(src,cls,alt=''){
+    return '<img class="'+cls+'" src="'+src+'" alt="'+alt+'" draggable="false">';
   }
 
   function cardNode(card,back=false){
@@ -164,15 +146,18 @@ if(typeof document!=='undefined'){
       return el;
     }
     const n=cardNumber[card.numero]||String(card.numero);
+    const suit=imageTag(suitAsset[card.palo],'suit-image','');
     if(figureName[card.numero]){
       el.classList.add('figure','figure-'+card.numero);
-      el.innerHTML='<span class="corner">'+n+'</span><span class="figure-art">'+figureSvg(card)+'</span><span class="figure-caption">'+figureName[card.numero]+' · '+card.palo+'</span><span class="corner bottom">'+n+'</span>';
+      const art=imageTag(figureAsset[card.numero],'figure-image','');
+      el.innerHTML='<span class="corner">'+n+'</span><span class="figure-art">'+art+'</span><span class="figure-suit" aria-hidden="true">'+suit+'</span><span class="figure-caption">'+figureName[card.numero]+' · '+card.palo+'</span><span class="corner bottom">'+n+'</span>';
     }else{
-      el.innerHTML='<span class="corner">'+n+'</span><span class="suit" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+suitIcon[card.palo]+'</svg></span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';
+      el.innerHTML='<span class="corner">'+n+'</span><span class="suit-art" aria-hidden="true">'+suit+'</span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';
     }
     el.setAttribute('aria-label',(figureName[card.numero]||card.numero)+' de '+card.palo);
     return el;
   }
+
 
   function rankName(v){
     if(v===12)return 'rey';
@@ -243,6 +228,7 @@ if(typeof document!=='undefined'){
       player.classList.toggle('is-active',isActive);
       player.classList.toggle('is-cutter',isCutter);
       player.classList.toggle('is-last',isLast);
+      player.dataset.call=isLast?state.lastAction:'';
 
       const tags=[];
       if(isHand)tags.push('MANO');
@@ -285,7 +271,7 @@ if(typeof document!=='undefined'){
     state.hands=Object.fromEntries(MusRules.ids.map(id=>[id,[]]));
     for(let i=0;i<4;i++)for(const id of MusRules.order(state.mano))state.hands[id].push(state.deck.pop());
     state.selected.clear();state.musTurns=0;state.stage='mus';state.phases=[];state.phaseIndex=0;state.bets={};state.pending=null;
-    state.revealed=false;state.note='';state.result=[];state.cutter=null;state.lastActor=null;state.lastAction='';state.actionLog=[];setActor('jugador1');
+    state.revealed=false;state.note='';state.result=[];state.cutter=null;state.lastActor=null;state.lastAction='';state.actionLog=[];state.flowToken++;setActor('jugador1');
     $('resumen').innerHTML='<p class="empty">Aquí aparecerán los resultados al descubrir las cartas.</p>';
     $('cuenta-descartes').textContent='(0)';
     panel('mus');
@@ -362,10 +348,12 @@ if(typeof document!=='undefined'){
 
     const f=phase();
     if(!playerCanSpeak(f)&&partnerCanSpeak(f)){
-      state.stage='partner';panel('none');setActor('jugador3');
-      const why=f==='PARES'?'Tú no llevas pares.':'Tú no llevas juego.';
-      status(phaseName[f]+': habla tu compañero.',why+' Él decide este lance por la pareja.','COMPAÑERO');render();
-      partnerLead(f);return;
+      state.stage='partner';panel('none');
+      const declaration=f==='PARES'?'CANTA PARES':'TIENE JUEGO';
+      setActor('jugador3',declaration);
+      const why=f==='PARES'?'Tú no llevas pares. Tu compañero sí.':'Tú no llevas juego. Tu compañero sí.';
+      status(phaseName[f]+': habla tu compañero.',why+' Vas a ver sus decisiones en la mesa.','COMPAÑERO');render();
+      schedule(()=>partnerLead(f),1000);return;
     }
 
     state.stage='betting';panel('apuestas');setActor('jugador1');
@@ -423,7 +411,7 @@ if(typeof document!=='undefined'){
     if(!playerCanSpeak(f)&&partnerCanSpeak(f)){
       state.stage='partner-respond';panel('none');
       status(label[speaker]+' '+(ordago?'lanza órdago.':'envida '+amount+'.'),'Tú no puedes hablar en '+phaseName[f].toLowerCase()+'. Responde tu compañero.','COMPAÑERO');render();
-      partnerRespond(amount,previous,ordago);return;
+      schedule(()=>partnerRespond(amount,previous,ordago),1000);return;
     }
 
     state.stage='respond';panel('respuesta');
@@ -433,44 +421,64 @@ if(typeof document!=='undefined'){
 
   function aiAnswer(amount,previous,ordago=false){
     const f=phase();const speaker=rivalSpeaker(f);
+    state.stage='ai';panel('none');
     if(!aiWants(f)||(amount>=4&&!aiVeryStrong(f))){
-      setActor(speaker,'NO QUIERE');refused('nosotros',previous||1,speaker);return;
+      setActor(speaker,'NO QUIERE');
+      status(label[speaker]+' no quiere.',(previous||1)+' '+((previous||1)===1?'piedra':'piedras')+' para tu equipo.','RIVALES');render();
+      schedule(()=>refused('nosotros',previous||1,speaker));return;
     }
     if(ordago){
-      setActor(speaker,'QUIERO');state.bets[f]={status:'accepted',amount:40};showResults(true);return;
+      setActor(speaker,'QUIERO');
+      status(label[speaker]+': quiero el órdago.','Se muestran las cartas para resolver la partida.','RIVALES');render();
+      schedule(()=>{state.bets[f]={status:'accepted',amount:40};showResults(true);});return;
     }
     if(aiVeryStrong(f)&&amount<6){
-      offerFromRivals(amount+2,amount,false);return;
+      schedule(()=>offerFromRivals(amount+2,amount,false),500);return;
     }
     setActor(speaker,'QUIERO');state.bets[f]={status:'accepted',amount};
-    state.note=label[speaker]+': quiero. Apuesta aceptada de '+amount+' piedras.';advance();
+    status(label[speaker]+': quiero.','Apuesta aceptada de '+amount+' piedras.','RIVALES');render();
+    schedule(()=>{state.note=label[speaker]+': quiero. Apuesta aceptada de '+amount+' piedras.';advance();});
   }
+
 
   function partnerLead(f){
     if(state.stage!=='partner'||phase()!==f)return;
     if(partnerWants(f)){
-      setActor('jugador3','ENVIDA 2');state.note='Compañero: envido 2.';aiAnswer(2,0,false);
+      setActor('jugador3','ENVIDA 2');state.stage='partner-action';panel('none');
+      status('Compañero: envido 2.','Ahora responden los rivales.','COMPAÑERO');render();
+      schedule(()=>aiAnswer(2,0,false));
     }else{
-      setActor('jugador3','PASA');
-      if(aiWants(f))offerFromRivals(2,0,false);
-      else{state.bets[f]={status:'passed',amount:0};state.note='Tu compañero pasa y los rivales también.';advance();}
+      setActor('jugador3','PASA');state.stage='partner-action';panel('none');
+      status('Compañero: paso.','Los rivales deciden si también pasan o envidan.','COMPAÑERO');render();
+      schedule(()=>{
+        if(aiWants(f))offerFromRivals(2,0,false);
+        else{state.bets[f]={status:'passed',amount:0};state.note='Tu compañero pasa y los rivales también.';advance();}
+      });
     }
   }
 
   function partnerRespond(amount,previous,ordago=false){
-    const f=phase();state.pending=null;
+    const f=phase();state.pending=null;state.stage='partner-action';panel('none');
     if(!partnerWants(f)||(amount>=4&&!partnerVeryStrong(f))){
-      setActor('jugador3','NO QUIERE');refused('ellos',previous||1,'jugador3');return;
+      setActor('jugador3','NO QUIERE');
+      status('Compañero: no quiero.',(previous||1)+' '+((previous||1)===1?'piedra':'piedras')+' para los rivales.','COMPAÑERO');render();
+      schedule(()=>refused('ellos',previous||1,'jugador3'));return;
     }
     if(ordago){
-      setActor('jugador3','QUIERO');state.bets[f]={status:'accepted',amount:40};showResults(true);return;
+      setActor('jugador3','QUIERO');
+      status('Compañero: quiero el órdago.','Se muestran las cartas para resolver la partida.','COMPAÑERO');render();
+      schedule(()=>{state.bets[f]={status:'accepted',amount:40};showResults(true);});return;
     }
     if(partnerVeryStrong(f)&&amount<6){
-      const raised=amount+2;setActor('jugador3','REENVIDA '+raised);aiAnswer(raised,amount,false);return;
+      const raised=amount+2;setActor('jugador3','REENVIDA '+raised);
+      status('Compañero: reenvido '+raised+'.','Los rivales deben responder.','COMPAÑERO');render();
+      schedule(()=>aiAnswer(raised,amount,false));return;
     }
     setActor('jugador3','QUIERO');state.bets[f]={status:'accepted',amount};
-    state.note='Compañero: quiero. Apuesta aceptada de '+amount+' piedras.';advance();
+    status('Compañero: quiero.','Apuesta aceptada de '+amount+' piedras.','COMPAÑERO');render();
+    schedule(()=>{state.note='Compañero: quiero. Apuesta aceptada de '+amount+' piedras.';advance();});
   }
+
 
   function playerPass(){
     if(state.stage!=='betting')return;
