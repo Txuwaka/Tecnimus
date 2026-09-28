@@ -51,7 +51,8 @@ if(typeof document!=='undefined'){
     Bastos:'<path d="M11 28 20.5 6.5a3.2 3.2 0 0 1 6 2.6L16 29Z"/><path d="m17 14 5 2m-7 3 5 2m-7 3 5 2"/><circle cx="24" cy="7" r="1"/>'
   };
   const suitColor={Oros:'gold',Copas:'red',Espadas:'blue',Bastos:'green'};
-  const cardNumber={1:'A',10:'S',11:'C',12:'R'};
+  const cardNumber={1:'1',10:'10',11:'11',12:'12'};
+  const figureName={10:'SOTA',11:'CABALLO',12:'REY'};
   const phaseName={GRANDE:'Grande',CHICA:'Chica',PARES:'Pares',JUEGO:'Juego',PUNTO:'Punto'};
   const state={scores:{nosotros:0,ellos:0},handNumber:0,mano:0,hands:{},deck:[],discard:[],selected:new Set(),musTurns:0,stage:'mus',phases:[],phaseIndex:0,bets:{},pending:null,revealed:false,note:'',result:[]};
   function announce(message){$('anuncio').textContent=message;}
@@ -59,7 +60,7 @@ if(typeof document!=='undefined'){
   function panel(id){for(const name of ['mus','apuestas','respuesta','resolver','siguiente','fin'])$('panel-'+name).hidden=name!==id;}
   function cardNode(card,back=false,mini=false){
     const el=document.createElement('div');el.className='card'+(back?' back':' '+suitColor[card.palo]);
-    if(!back){const n=cardNumber[card.numero]||String(card.numero);el.innerHTML='<span class="corner">'+n+'</span><span class="suit" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+suitIcon[card.palo]+'</svg></span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';el.setAttribute('aria-label',card.numero+' de '+card.palo);}
+    if(!back){const n=cardNumber[card.numero]||String(card.numero);el.innerHTML='<span class="corner">'+n+'</span><span class="suit" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+suitIcon[card.palo]+'</svg></span><span class="card-name">'+(figureName[card.numero]||card.palo)+'</span><span class="corner bottom">'+n+'</span>';if(figureName[card.numero])el.classList.add('figure');el.setAttribute('aria-label',(figureName[card.numero]||card.numero)+' de '+card.palo);}
     else el.setAttribute('aria-label','Carta boca abajo');
     return el;
   }
@@ -74,8 +75,8 @@ if(typeof document!=='undefined'){
       $('turno-j'+id.at(-1)).textContent=MusRules.order(state.mano)[0]===id?'· MANO':'';
       state.hands[id].forEach((c,i)=>{
         if(id==='jugador1'){
-          const b=document.createElement('button');b.type='button';b.className='card '+suitColor[c.palo]+(state.selected.has(i)?' selected':'');b.disabled=state.stage!=='mus';b.setAttribute('aria-pressed',String(state.selected.has(i)));b.setAttribute('aria-label',(cardNumber[c.numero]||c.numero)+' de '+c.palo+(state.selected.has(i)?', seleccionada':''));
-          const face=cardNode(c);b.innerHTML=face.innerHTML;
+          const b=document.createElement('button');b.type='button';b.className='card '+suitColor[c.palo]+(state.selected.has(i)?' selected':'');b.disabled=state.stage!=='mus';b.setAttribute('aria-pressed',String(state.selected.has(i)));b.setAttribute('aria-label',(figureName[c.numero]||c.numero)+' de '+c.palo+(state.selected.has(i)?', seleccionada':''));
+          const face=cardNode(c);b.innerHTML=face.innerHTML;if(figureName[c.numero])b.classList.add('figure');
           b.addEventListener('click',()=>{if(state.selected.has(i))state.selected.delete(i);else state.selected.add(i);$('cuenta-descartes').textContent='('+state.selected.size+')';render();});box.append(b);
         }else box.append(cardNode(c,!state.revealed,true));
       });
