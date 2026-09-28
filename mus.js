@@ -313,9 +313,9 @@ function evaluarGanadorChica() {
 
     return ganadorActual;
 }
-// --- 6. MODO TEST: LEVANTAR CARTAS ---
+// --- 6. MODO TEST: LEVANTAR CARTAS Y EVALUAR ---
 document.getElementById('btn-resolver').addEventListener('click', () => {
-    // 1. Damos la vuelta a las cartas de los rivales quitando la clase 'carta-oculta'
+    // 1. Damos la vuelta a las cartas de los rivales
     const rivales = [
         { id: 'cartas-j2', mano: manosActuales.jugador2 },
         { id: 'cartas-j3', mano: manosActuales.jugador3 },
@@ -324,18 +324,19 @@ document.getElementById('btn-resolver').addEventListener('click', () => {
 
     rivales.forEach(rival => {
         const contenedor = document.getElementById(rival.id);
-        contenedor.innerHTML = ''; // Borramos los reversos
+        contenedor.innerHTML = ''; 
         
         rival.mano.forEach(carta => {
             const cartaDiv = document.createElement('div');
-            cartaDiv.className = 'carta'; // Sin 'carta-oculta'
+            cartaDiv.className = 'carta'; 
             cartaDiv.innerText = carta.nombre;
             contenedor.appendChild(cartaDiv);
         });
     });
 
-    // 2. Calculamos quién gana La Grande y lo anunciamos
-    let idGanador = evaluarGanadorGrande();
+    // 2. Calculamos los ganadores de ambas fases
+    let idGanadorGrande = evaluarGanadorGrande();
+    let idGanadorChica = evaluarGanadorChica();
     
     let nombres = {
         'jugador1': 'Tú',
@@ -344,5 +345,8 @@ document.getElementById('btn-resolver').addEventListener('click', () => {
         'jugador4': 'Rival 2'
     };
 
-    alert(`¡Las cartas están boca arriba!\nEl ganador de LA GRANDE es: ${nombres[idGanador]}`);
+    // 3. Mostramos el resultado
+    alert(`¡Las cartas están boca arriba!\n\n` +
+          `🏆 GRANDE: Gana ${nombres[idGanadorGrande]}\n` +
+          `🏆 CHICA: Gana ${nombres[idGanadorChica]}`);
 });
