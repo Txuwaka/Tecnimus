@@ -184,7 +184,7 @@ document.getElementById('btn-cortar').addEventListener('click', () => {
 
 
 // ==========================================
-// 5. MÁQUINA DE ESTADOS: APUESTAS Y FASES
+// 5. MÁQUINA DE ESTADOS E IA DE APUESTAS
 // ==========================================
 function iniciarFaseApuestas() {
     document.getElementById('panel-descartes').style.display = 'none';
@@ -198,6 +198,7 @@ function prepararFaseUI(nombreFase) {
     piedrasEnMesa = 0;
     document.getElementById('texto-fase').innerText = `Fase: ${nombreFase}`;
     
+    // Mostramos tus opciones base, ocultamos las respuestas
     document.getElementById('btn-paso').style.display = 'inline-block';
     document.getElementById('btn-envido').style.display = 'inline-block';
     document.getElementById('btn-ordago').style.display = 'inline-block';
@@ -222,20 +223,102 @@ function avanzarFase() {
     }
 }
 
-document.getElementById('btn-paso').addEventListener('click', () => avanzarFase());
+// --- INTELIGENCIA ARTIFICIAL (EVALUACIÓN DE FUERZA) ---
+function IA_QuiereApostar(faseActual) {
+    // La IA evalúa en equipo: comprueba si Rival 1 (jugador2) o Rival 2 (jugador4) tienen buenas cartas
+    let manoR1 = manosActuales['jugador2'];
+    let manoR2 = manosActuales['jugador4'];
+
+    function evaluarMano(mano, fase) {
+        if (fase === 'GRANDE') {
+            // Fuerte: Mínimo 2 Reyes (12) o 1 Rey y 1 Caballo (11)
+            let reyes = mano.filter(c => obtenerValorGrande(c) === 12).length;
+            let caballos = mano.filter(c => obtenerValorGrande(c) === 11).length;
+            return reyes >= 2 || (reyes === 1 && caballos >= 1);
+        }
+        if (fase === 'CHICA') {
+            // Fuerte: Mínimo 2 Ases (1) o 1 As y 1 Cuatro
+            let ases = mano.filter(c => obtenerValorGrande(c) === 1).length;
+            let cuatros = mano.filter(c => obtenerValorGrande(c) === 4).length;
+            return ases >= 2 || (ases === 1 && cuatros >= 1);
+        }
+        if (fase === 'PARES') {
+            // Fuerte: Medias (2), Duples (3), o Pares (1) de Reyes/Caballos
+            let pares = evaluarParesJugador(mano);
+            if (pares.categoria >= 2) return true; 
+            if (pares.categoria === 1 && pares.valores[0] >= 11) return true; 
+            return false;
+        }
+        if (fase === 'JUEGO') {
+            // Fuerte: 31 o 32 en Juego. 30 o 29 al Punto.
+            let suma = calcularSumaJuego(mano);
+            return suma === 31 || suma === 32 || suma === 30 || suma === 29;
+        }
+        return false;
+    }
+
+    return evaluarMano(manoR1, faseActual) || evaluarMano(manoR2, faseActual);
+}
+
+// --- INTERACCIÓN DE BOTONES Y FLUJO ---
+
+document.getElementById('btn-paso').addEventListener('click', () => {
+    let fase = ordenFases[indiceFaseActual];
+    let iaApostaria = IA_QuiereApostar(fase);
+    
+    if (iaApostaria) {
+        piedrasEnMesa += 2;
+        alert(`Tú: Paso.\nRivales: ¡Nosotros ENVIDAMOS! (Apuestan 2 piedras)`);
+        
+        // La IA ha apostado, ahora te toca decidir a ti
+        document.getElementById('btn-paso').style.display = 'none';
+        document.getElementById('btn-envido').style.display = 'none';
+        document.getElementById('btn-ordago').style.display = 'none';
+        
+        document.getElementById('btn-quiero').style.display = 'inline-block';
+        document.getElementById('btn-no-quiero').style.display = 'inline-block';
+    } else {
+        console.log(`Ambos equipos pasan en ${fase}.`);
+        avanzarFase();
+    }
+});
 
 document.getElementById('btn-envido').addEventListener('click', () => {
     piedrasEnMesa += 2;
-    document.getElementById('btn-paso').style.display = 'none';
-    document.getElementById('btn-envido').style.display = 'none';
-    document.getElementById('btn-ordago').style.display = 'none';
+    let fase = ordenFases[indiceFaseActual];
+    let iaAcepta = IA_QuiereApostar(fase);
     
-    document.getElementById('btn-quiero').style.display = 'inline-block';
-    document.getElementById('btn-no-quiero').style.display = 'inline-block';
+    if (iaAcepta) {
+        alert(`Tú: ¡Envido!\nRivales: ¡QUIERO! (Bote en ${piedrasEnMesa} piedras)`);
+        avanzarFase();
+    } else {
+        alert(`Tú: ¡Envido!\nRivales: NO QUIERO. (Te llevas 1 piedra de renuncio)`);
+        avanzarFase();
+    }
 });
 
-document.getElementById('btn-quiero').addEventListener('click', () => avanzarFase());
-document.getElementById('btn-no-quiero').addEventListener('click', () => avanzarFase());
+document.getElementById('btn-ordago').addEventListener('click', () => {
+    let fase = ordenFases[indiceFaseActual];
+    let iaAcepta = IA_QuiereApostar(fase);
+    
+    if (iaAcepta) {
+        alert(`Tú: ¡ÓRDAGO!\nRivales: ¡ÓRDAGO QUERIDO! (Partida a muerte en ${fase})`);
+        avanzarFase();
+    } else {
+        alert(`Tú: ¡ÓRDAGO!\nRivales: NO QUIERO. (Te llevas 1 piedra)`);
+        avanzarFase();
+    }
+});
+
+document.getElementById('btn-quiero').addEventListener('click', () => {
+    alert(`Tú: Quiero. (Apuesta aceptada)`);
+    avanzarFase();
+});
+
+document.getElementById('btn-no-quiero').addEventListener('click', () => {
+    alert(`Tú: No quiero. (Los rivales se llevan 1 piedra de renuncio)`);
+    avanzarFase();
+});
 
 
 // ==========================================
