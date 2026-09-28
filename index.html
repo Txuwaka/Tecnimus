@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TecniMus</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="mesa-mus">
+        <!-- Rival 1 (Izquierda) -->
+        <div class="jugador rival-izquierda" id="jugador2">
+            <h3>Rival 1</h3>
+            <div class="cartas" id="cartas-j2"></div>
+        </div>
+
+        <!-- Compañero (Arriba) -->
+        <div class="jugador companero" id="jugador3">
+            <h3>Compañero</h3>
+            <div class="cartas" id="cartas-j3"></div>
+        </div>
+
+        <!-- Rival 2 (Derecha) -->
+        <div class="jugador rival-derecha" id="jugador4">
+            <h3>Rival 2</h3>
+            <div class="cartas" id="cartas-j4"></div>
+        </div>
+
+        <!-- Jugador Principal (Abajo) -->
+        <div class="jugador principal" id="jugador1">
+            <h3>Tú</h3>
+            <div class="cartas" id="cartas-j1"></div>
+            <!-- Controles de acción -->
+            <div class="controles">
+                <button id="btn-mus">Dar Mus</button>
+                <button id="btn-cortar">Cortar Mus</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="mus.js"></script>
+</body>
+</html>
