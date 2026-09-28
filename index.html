@@ -31,12 +31,27 @@
             <h3>Tú</h3>
             <div class="cartas" id="cartas-j1"></div>
             <!-- Controles de acción -->
-            <div class="controles">
-                <button id="btn-mus">Dar Mus</button>
-                <button id="btn-cortar">Cortar Mus</button>
-                <button id="btn-resolver" style="background-color: #f39c12; margin-top: 10px;">Resolver y ver cartas (Test)</button>
+            <div class="controles"
+        <!-- Panel 1: Fase de Descartes -->
+                <div id="panel-descartes">
+                    <button id="btn-mus">Dar Mus</button>
+                    <button id="btn-cortar">Cortar Mus</button>
+                </div>
+
+                <!-- Panel 2: Fase de Apuestas (Oculto al inicio) -->
+                <div id="panel-apuestas" style="display: none; background-color: rgba(0,0,0,0.6); padding: 10px; border-radius: 10px;">
+                    <h3 id="texto-fase" style="margin: 0 0 10px 0; color: #f1c40f;">Fase: GRANDE</h3>
+                    
+                    <!-- Acciones iniciales -->
+                    <button id="btn-paso" style="background-color: #34495e;">Paso</button>
+                    <button id="btn-envido" style="background-color: #e67e22;">Envido (2)</button>
+                    <button id="btn-ordago" style="background-color: #8e44ad;">¡Órdago!</button>
+                    
+                    <!-- Respuestas (Ocultas hasta que alguien envide) -->
+                    <button id="btn-quiero" style="display: none; background-color: #27ae60;">Quiero</button>
+                    <button id="btn-no-quiero" style="display: none; background-color: #c0392b;">No Quiero</button>
+                </div>
             </div>
-        </div>
     </div>
     
     <script src="mus.js"></script>
