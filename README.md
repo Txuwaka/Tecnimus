@@ -10,6 +10,6 @@ Juego de mus para un jugador contra tres jugadores controlados por el navegador.
 
 ## Reglas implementadas
 
-Baraja española de 40 cartas con 8 reyes y 8 ases: los treses valen reyes y los doses, ases. Mano rotatoria en los empates. Lances por orden: grande, chica, pares y juego; punto cuando nadie tiene juego. Gana el primer equipo que llega a 40 piedras. Se cobran los envites no queridos en el acto y se puntúan los demás lances al descubrir las cartas. El órdago querido resuelve inmediatamente la partida.
+Baraja española de 40 cartas con 8 reyes y 8 ases: los treses valen reyes y los doses, ases. Mano rotatoria en los empates. Lances por orden: grande, chica, pares y juego; punto cuando nadie tiene juego. Gana el primer equipo que llega a 40 piedras. Se cobran los envites no queridos en el acto y se puntúan los demás lances al descubrir las cartas. Puedes aceptar un envite, subirlo de dos en dos, lanzar órdago o rechazarlo. Si se rechaza una subida, se cobran los tantos de la apuesta anterior. El órdago querido resuelve inmediatamente la partida.
 
-Esta es una versión simplificada para un jugador. La máquina usa una estrategia básica; no hay señas, subidas de apuesta, declaración manual de pares o juego ni series de varios juegos.
+Esta es una versión simplificada para un jugador. La máquina usa una estrategia básica; no hay señas, declaración manual de pares o juego ni series de varios juegos.

@@ -43,7 +43,13 @@ if(typeof module!=='undefined' && module.exports) module.exports=MusRules;
 if(typeof document!=='undefined'){
   const $=id=>document.getElementById(id);
   const label={jugador1:'Tú',jugador2:'Rival 1',jugador3:'Compañero',jugador4:'Rival 2'};
-  const suitSymbol={Oros:'◆',Copas:'♥',Espadas:'♠',Bastos:'♣'};
+  // Dibujos propios de los cuatro palos españoles, en SVG para que no dependan de emojis.
+  const suitIcon={
+    Oros:'<circle cx="16" cy="16" r="12"/><circle cx="16" cy="16" r="9"/><path d="m16 8 1.9 5.7L24 16l-6.1 2.3L16 24l-1.9-5.7L8 16l6.1-2.3Z"/>',
+    Copas:'<path d="M6 5h20l-1.7 9.2C23.5 19 20.7 21 16 21s-7.5-2-8.3-6.8L6 5Z"/><path d="M16 21v6M10 28h12"/><path d="M7 9H4c0 4 2 6 5 6M25 9h3c0 4-2 6-5 6"/>',
+    Espadas:'<path d="m16 2 3.2 4.5-2 13.5-1.2 2-1.2-2-2-13.5L16 2Z"/><path d="M9 21h14M16 22v6M13 29h6"/><path d="m9 21-2-3m16 3 2-3"/>',
+    Bastos:'<path d="M11 28 20.5 6.5a3.2 3.2 0 0 1 6 2.6L16 29Z"/><path d="m17 14 5 2m-7 3 5 2m-7 3 5 2"/><circle cx="24" cy="7" r="1"/>'
+  };
   const suitColor={Oros:'gold',Copas:'red',Espadas:'blue',Bastos:'green'};
   const cardNumber={1:'A',10:'S',11:'C',12:'R'};
   const phaseName={GRANDE:'Grande',CHICA:'Chica',PARES:'Pares',JUEGO:'Juego',PUNTO:'Punto'};
@@ -53,7 +59,7 @@ if(typeof document!=='undefined'){
   function panel(id){for(const name of ['mus','apuestas','respuesta','resolver','siguiente','fin'])$('panel-'+name).hidden=name!==id;}
   function cardNode(card,back=false,mini=false){
     const el=document.createElement('div');el.className='card'+(back?' back':' '+suitColor[card.palo]);
-    if(!back){const n=cardNumber[card.numero]||String(card.numero);el.innerHTML='<span class="corner">'+n+'</span><span class="suit" aria-hidden="true">'+suitSymbol[card.palo]+'</span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';el.setAttribute('aria-label',card.numero+' de '+card.palo);}
+    if(!back){const n=cardNumber[card.numero]||String(card.numero);el.innerHTML='<span class="corner">'+n+'</span><span class="suit" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+suitIcon[card.palo]+'</svg></span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';el.setAttribute('aria-label',card.numero+' de '+card.palo);}
     else el.setAttribute('aria-label','Carta boca abajo');
     return el;
   }
@@ -123,31 +129,60 @@ if(typeof document!=='undefined'){
     if(phaseNameValue==='JUEGO')return theirs.some(h=>[31,32].includes(MusRules.sum(h)));
     return theirs.some(h=>MusRules.sum(h)>=28);
   }
+  function aiVeryStrong(f){
+    const theirs=['jugador2','jugador4'].map(id=>state.hands[id]);
+    if(f==='GRANDE')return theirs.some(h=>h.filter(c=>MusRules.rank(c)===12).length>=3);
+    if(f==='CHICA')return theirs.some(h=>h.filter(c=>MusRules.rank(c)===1).length>=3);
+    if(f==='PARES')return theirs.some(h=>MusRules.pairs(h).tier===3);
+    if(f==='JUEGO')return theirs.some(h=>MusRules.sum(h)===31);
+    return theirs.some(h=>MusRules.sum(h)===30);
+  }
   function award(side,points){state.scores[side]+=points;return state.scores[side]>=40;}
   function closeGame(side,message){state.stage='finished';state.revealed=true;panel('fin');render();status((side==='nosotros'?'¡Habéis ganado!':'Ganan los rivales.')+' '+message,'Partida terminada · '+state.scores.nosotros+' a '+state.scores.ellos+' piedras.','FIN DE PARTIDA');}
-  function refused(side){
+  function refused(side,points=1){
     const f=phase();state.bets[f]={status:'refused',amount:0,side};
-    const finished=award(side,1);state.note=(side==='nosotros'?'Rivales: no quieren.':'No quieres. Los rivales cobran una piedra.');
+    const finished=award(side,points);state.note=(side==='nosotros'?'Rivales: no quieren.':'No quieres. Los rivales cobran ')+points+' '+(points===1?'piedra.':'piedras.');
     if(finished){
       state.revealed=true;
       $('resumen').replaceChildren();
       const item=document.createElement('div');item.className='result-row';
-      item.textContent=phaseName[f]+' · apuesta no querida · +1 para '+(side==='nosotros'?'tu equipo':'rivales');
+      item.textContent=phaseName[f]+' · apuesta no querida · +'+points+' para '+(side==='nosotros'?'tu equipo':'rivales');
       $('resumen').append(item);
       closeGame(side,'La apuesta rechazada dio la piedra decisiva.');return;
     }
     advance();
   }
+  function offerFromRivals(amount,previous){
+    state.stage='respond';state.pending={side:'ellos',amount,previous,ordago:false};panel('respuesta');
+    $('btn-envido-mas').textContent='Envido más · '+(amount+2);
+    status('Los rivales envidan '+amount+'.','Puedes querer, subir dos piedras, lanzar un órdago o no querer. Si rechazas, cobran '+(previous||1)+'.','RESPONDE');render();
+  }
+  function aiAnswer(amount,previous,ordago=false){
+    const f=phase();
+    if(!aiWants(f)||(amount>=4&&!aiVeryStrong(f))){
+      refused('nosotros',previous||1);return;
+    }
+    if(ordago){state.bets[f]={status:'accepted',amount:40};showResults(true);return;}
+    if(aiVeryStrong(f)&&amount<6){offerFromRivals(amount+2,amount);return;}
+    state.bets[f]={status:'accepted',amount};state.note='Rivales: quiero. Apuesta aceptada de '+amount+' piedras.';advance();
+  }
   function playerPass(){if(state.stage!=='betting')return;const f=phase();if(aiWants(f)){
-    state.stage='respond';state.pending={side:'ellos',amount:2};panel('respuesta');status('Los rivales envidan 2.','¿Quieres aceptar la apuesta o darles una piedra?','RESPONDE');render();
+    offerFromRivals(2,0);
   }else{state.bets[f]={status:'passed',amount:0};state.note='Ambos equipos pasan.';advance();}}
-  function playerBet(ordo=false){if(state.stage!=='betting')return;const f=phase();if(aiWants(f)){
-    state.bets[f]={status:'accepted',amount:ordo?40:2};
-    if(ordo){showResults(true);return;}
-    state.note='Rivales: quiero. Apuesta aceptada de 2 piedras.';advance();
-  }else refused('nosotros');}
-  function respond(accept){if(state.stage!=='respond')return;const f=phase();if(accept){state.bets[f]={status:'accepted',amount:state.pending.amount};state.pending=null;state.note='Quiero. Apuesta aceptada de 2 piedras.';advance();}
-    else{state.pending=null;refused('ellos');}}
+  function playerBet(ordo=false){if(state.stage==='betting')aiAnswer(ordo?40:2,0,ordo);}
+  function respond(accept){
+    if(state.stage!=='respond')return;
+    const pending=state.pending;state.pending=null;
+    if(!accept){refused('ellos',pending.previous||1);return;}
+    if(pending.ordago){state.bets[phase()]={status:'accepted',amount:40};showResults(true);return;}
+    state.bets[phase()]={status:'accepted',amount:pending.amount};
+    state.note='Quiero. Apuesta aceptada de '+pending.amount+' piedras.';advance();
+  }
+  function respondRaise(ordago=false){
+    if(state.stage!=='respond'||state.pending.ordago)return;
+    const previous=state.pending.amount;state.pending=null;state.stage='betting';
+    aiAnswer(ordago?40:previous+2,previous,ordago);
+  }
   function showResults(ordo=false){
     if(!ordo&&state.stage!=='ready')return;
     state.revealed=true;const phases=ordo?[phase()]:state.phases;
@@ -191,6 +226,8 @@ if(typeof document!=='undefined'){
   $('btn-ordago').addEventListener('click',()=>playerBet(true));
   $('btn-quiero').addEventListener('click',()=>respond(true));
   $('btn-no-quiero').addEventListener('click',()=>respond(false));
+  $('btn-envido-mas').addEventListener('click',()=>respondRaise(false));
+  $('btn-ordago-respuesta').addEventListener('click',()=>respondRaise(true));
   $('btn-resolver').addEventListener('click',()=>showResults(false));
   $('btn-siguiente').addEventListener('click',()=>{if(state.stage==='summary')freshHand();});
   $('btn-nueva').addEventListener('click',newGame);
