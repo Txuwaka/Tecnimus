@@ -8,6 +8,18 @@
 </head>
 <body>
     <div class="mesa-mus">
+        <!-- Marcador Global -->
+        <div class="marcador">
+            <div class="equipo">
+                <h4>Nosotros</h4>
+                <span id="pts-nosotros">0</span>
+            </div>
+            <div class="equipo">
+                <h4>Ellos</h4>
+                <span id="pts-ellos">0</span>
+            </div>
+        </div>
+
         <!-- Rival 1 (Izquierda) -->
         <div class="jugador rival-izquierda" id="jugador2">
             <h3>Rival 1</h3>
@@ -33,32 +45,31 @@
             
             <!-- Controles de acción -->
             <div class="controles">
-                <!-- Panel 1: Fase de Descartes -->
                 <div id="panel-descartes">
                     <button id="btn-mus">Dar Mus</button>
                     <button id="btn-cortar">Cortar Mus</button>
                 </div>
 
-                <!-- Panel 2: Fase de Apuestas (Oculto al inicio) -->
                 <div id="panel-apuestas" style="display: none; background-color: rgba(0,0,0,0.6); padding: 10px; border-radius: 10px;">
                     <h3 id="texto-fase" style="margin: 0 0 10px 0; color: #f1c40f;">Fase: GRANDE</h3>
                     
-                    <!-- Acciones iniciales -->
                     <button id="btn-paso" style="background-color: #34495e;">Paso</button>
                     <button id="btn-envido" style="background-color: #e67e22;">Envido (2)</button>
                     <button id="btn-ordago" style="background-color: #8e44ad;">¡Órdago!</button>
                     
-                    <!-- Respuestas (Ocultas hasta que alguien envide) -->
                     <button id="btn-quiero" style="display: none; background-color: #27ae60;">Quiero</button>
                     <button id="btn-no-quiero" style="display: none; background-color: #c0392b;">No Quiero</button>
                 </div>
-            </div> <!-- Cierra controles -->
-        </div> <!-- Cierra jugador principal -->
+            </div>
+        </div>
         
-        <!-- Botón de Test (Añadido para que puedas ver el resultado de las fases) -->
-        <button id="btn-resolver" style="position: absolute; bottom: -50px; left: 50%; transform: translateX(-50%); background-color: #f39c12;">Resolver y ver cartas (Test)</button>
+        <!-- Botones de Sistema (Test y Siguiente Ronda) -->
+        <div class="controles-sistema">
+            <button id="btn-resolver" style="background-color: #f39c12; display: none;">Resolver Cartas</button>
+            <button id="btn-siguiente" style="background-color: #2980b9; display: none;">Siguiente Ronda</button>
+        </div>
 
-    </div> <!-- Cierra mesa-mus -->
+    </div>
     
     <script src="mus.js"></script>
 </body>
