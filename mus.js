@@ -105,6 +105,10 @@ if(typeof document!=='undefined'){
   };
   const figureAsset={10:'assets/sota.png',11:'assets/caballo.png',12:'assets/rey.jpg'};
   const AI_DELAY=720;
+  const TIPS_KEY='tecnimus-consejos';
+  let tipsEnabled=false;
+  try{tipsEnabled=localStorage.getItem(TIPS_KEY)==='on';}catch(e){}
+  function renderTips(){document.body.classList.toggle('tips-on',tipsEnabled);$('btn-consejos').textContent='Consejos '+(tipsEnabled?'ON':'OFF');$('btn-consejos').setAttribute('aria-pressed',String(tipsEnabled));}
 
 
   // Estados: mus -> declarations -> opening -> response -> ready -> summary/finished.
@@ -140,9 +144,18 @@ if(typeof document!=='undefined'){
     return '<img class="'+cls+'" src="'+src+'" alt="'+alt+'" draggable="false">';
   }
 
+  // Posiciones propias de cada carta, en porcentaje del área interior.
+  const pipPositions={
+    1:[[50,50]],2:[[50,15],[50,85]],3:[[50,14],[50,50],[50,86]],
+    4:[[22,16],[78,16],[22,84],[78,84]],
+    5:[[22,16],[78,16],[50,50],[22,84],[78,84]],
+    6:[[22,14],[78,14],[22,50],[78,50],[22,86],[78,86]],
+    7:[[22,10],[78,10],[22,36],[78,36],[50,60],[22,88],[78,88]]
+  };
+  function pips(card){return pipPositions[card.numero].map(([x,y])=>'<span class="pip" style="left:'+x+'%;top:'+y+'%">'+imageTag(suitAsset[card.palo],'suit-image','')+'</span>').join('');}
   function cardNode(card,back=false){
     const el=document.createElement('div');
-    el.className='card'+(back?' back':' '+suitColor[card.palo]);
+    el.className='card'+(back?' back':' '+suitColor[card.palo]+' number-'+card.numero);
     if(back){
       el.setAttribute('aria-label','Carta boca abajo');
       return el;
@@ -154,7 +167,7 @@ if(typeof document!=='undefined'){
       const art=imageTag(figureAsset[card.numero],'figure-image','');
       el.innerHTML='<span class="corner">'+n+'</span><span class="figure-art">'+art+'</span><span class="figure-suit" aria-hidden="true">'+suit+'</span><span class="figure-caption">'+figureName[card.numero]+' · '+card.palo+'</span><span class="corner bottom">'+n+'</span>';
     }else{
-      el.innerHTML='<span class="corner">'+n+'</span><span class="suit-art" aria-hidden="true">'+suit+'</span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';
+      el.innerHTML='<span class="corner">'+n+'</span><span class="pip-field" aria-hidden="true">'+pips(card)+'</span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';
     }
     el.setAttribute('aria-label',(figureName[card.numero]||card.numero)+' de '+card.palo);
     return el;
@@ -244,7 +257,7 @@ if(typeof document!=='undefined'){
         if(id==='jugador1'){
           const b=document.createElement('button');
           b.type='button';
-          b.className='card '+suitColor[c.palo]+(state.selected.has(i)?' selected':'');
+          b.className='card '+suitColor[c.palo]+' number-'+c.numero+(state.selected.has(i)?' selected':'');
           b.disabled=state.stage!=='mus'||state.actor!=='jugador1';
           b.setAttribute('aria-pressed',String(state.selected.has(i)));
           b.setAttribute('aria-label',(figureName[c.numero]||c.numero)+' de '+c.palo+(state.selected.has(i)?', seleccionada':''));
@@ -449,6 +462,8 @@ if(typeof document!=='undefined'){
 
   function newGame(){state.scores={nosotros:0,ellos:0};state.handNumber=0;freshHand();}
 
+  $('btn-consejos').addEventListener('click',()=>{tipsEnabled=!tipsEnabled;try{localStorage.setItem(TIPS_KEY,tipsEnabled?'on':'off');}catch(e){}renderTips();});
+  renderTips();
   $('btn-mus').addEventListener('click',giveMus);
   $('btn-cortar').addEventListener('click',()=>{
     if(state.stage==='mus'&&state.actor==='jugador1'){
