@@ -1,15 +1,11 @@
-# TecniMus
+# TecniMus Alpha 4 — Motor de mesa
 
-Juego de mus para un jugador contra tres jugadores controlados por el navegador. Tu compañero juega sus cartas automáticamente; tú eliges los descartes y decides las apuestas de la pareja. No requiere instalación ni servidor.
+Juego de Mus para cuatro jugadores, con turnos individuales a derechas desde la mano. Abre `index.html` en un servidor estático o publica el contenido de esta carpeta en GitHub Pages.
 
-## Publicarlo en GitHub Pages
+## Flujo
 
-1. Descomprime el ZIP y sube los archivos `index.html`, `style.css` y `mus.js` a la raíz del repositorio.
-2. En GitHub, abre **Settings → Pages** y selecciona **Deploy from a branch**, rama **main**, carpeta **/(root)**.
-3. También puedes abrir `index.html` en el navegador para jugar sin publicar nada.
+`mus → declarations → opening → response → ready → summary`
 
-## Reglas implementadas
+En Mus hablan los cuatro y sólo después se descarta. Cada jugador declara Pares y Juego. En los lances, cada jugador habilitado puede pasar o envidar; ante un envite, los dos miembros habilitados de la pareja contraria contestan individualmente en orden de mano. Un «No quiero» no impide que el compañero quiera, reenvide o lance órdago.
 
-Baraja española de 40 cartas con 8 reyes y 8 ases: los treses valen reyes y los doses, ases. Mano rotatoria en los empates. Lances por orden: grande, chica, pares y juego; punto cuando nadie tiene juego. Gana el primer equipo que llega a 40 piedras. Se cobran los envites no queridos en el acto y se puntúan los demás lances al descubrir las cartas. Puedes aceptar un envite, subirlo de dos en dos, lanzar órdago o rechazarlo. Si se rechaza una subida, se cobran los tantos de la apuesta anterior. El órdago querido resuelve inmediatamente la partida.
-
-Esta es una versión simplificada para un jugador. La máquina usa una estrategia básica; no hay señas, declaración manual de pares o juego ni series de varios juegos.
+La mano rota al siguiente jugador a derechas al repartir. La variante mantiene 8 reyes y 8 ases, 40 piedras y los recursos gráficos de Alpha 3.1.

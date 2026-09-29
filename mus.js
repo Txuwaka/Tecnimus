@@ -69,7 +69,7 @@ const MusRules = (() => {
     const all=ids.map(id=>hands[id]);
     const pairPresent=all.some(h=>qualifies(h,'PARES'));
     const gamePresent=all.some(h=>qualifies(h,'JUEGO'));
-    return ['GRANDE','CHICA',...(pairPresent?['PARES']:[]),gamePresent?'JUEGO':'PUNTO'];
+    return ['GRANDE','CHICA','PARES',gamePresent?'JUEGO':'PUNTO'];
   }
 
   function canBet(hands,phase){
@@ -104,36 +104,38 @@ if(typeof document!=='undefined'){
     Bastos:'assets/bastos.png'
   };
   const figureAsset={10:'assets/sota.png',11:'assets/caballo.png',12:'assets/rey.jpg'};
-  const AI_DELAY=850;
+  const AI_DELAY=720;
 
 
-  const state={
-    scores:{nosotros:0,ellos:0},handNumber:0,mano:0,hands:{},deck:[],discard:[],selected:new Set(),musTurns:0,
+  // Estados: mus -> declarations -> opening -> response -> ready -> summary/finished.
+  // Un cursor recorre el orden desde la mano. Sólo response restringe el turno
+  // a la pareja que contesta; cada miembro conserva su decisión independiente.
+  const state={scores:{nosotros:0,ellos:0},handNumber:0,mano:0,hands:{},deck:[],discard:[],selected:new Set(),musTurns:0,
     stage:'mus',phases:[],phaseIndex:0,bets:{},pending:null,revealed:false,note:'',result:[],
-    cutter:null,actor:'jugador1',lastActor:null,lastAction:'',actionLog:[],flowToken:0
-  };
-
+    cutter:null,actor:null,lastActor:null,lastAction:'',calls:{},actionLog:[],flowToken:0,cursor:0,
+    musCalls:{},declarations:[],opening:[],response:[],passedSides:new Set(),offer:null};
   function announce(message){$('anuncio').textContent=message;}
   function status(title,detail,stage){$('mensaje').textContent=title;$('ayuda').textContent=detail;$('etapa').textContent=stage;announce(title+' '+detail);}
   function panel(id){for(const name of ['mus','apuestas','respuesta','resolver','siguiente','fin'])$('panel-'+name).hidden=name!==id;}
   function phase(){return state.phases[state.phaseIndex];}
   function handId(){return MusRules.order(state.mano)[0];}
-
+  function side(id){return MusRules.sides[id];}
   function setActor(id,action=''){
     state.actor=id||null;
-    if(id&&action){
-      state.lastActor=id;state.lastAction=action;
-      const entry=label[id]+': '+action;
-      if(state.actionLog[state.actionLog.length-1]!==entry)state.actionLog.push(entry);
-      if(state.actionLog.length>3)state.actionLog.shift();
-    }
+    if(id&&action){state.lastActor=id;state.lastAction=action;state.calls[id]=action;
+      state.actionLog.push(label[id]+': '+action);if(state.actionLog.length>5)state.actionLog.shift();}
   }
-
-  function schedule(fn,delay=AI_DELAY){
-    const token=state.flowToken;
-    window.setTimeout(()=>{if(state.flowToken===token)fn();},delay);
+  function schedule(fn,delay=AI_DELAY){const token=state.flowToken;window.setTimeout(()=>{if(state.flowToken===token)fn();},delay);}
+  function order(){return MusRules.order(state.mano);}
+  function enabled(id,f){return MusRules.qualifies(state.hands[id],f);}
+  function aiStrong(id,f){
+    const h=state.hands[id],r=h.map(MusRules.rank);
+    if(f==='GRANDE')return r.filter(v=>v===12).length>=2;
+    if(f==='CHICA')return r.filter(v=>v===1).length>=2;
+    if(f==='PARES')return MusRules.pairs(h).tier>=2||MusRules.pairs(h).values[0]===12;
+    if(f==='JUEGO')return [31,32].includes(MusRules.sum(h));
+    return MusRules.sum(h)>=28;
   }
-
   function imageTag(src,cls,alt=''){
     return '<img class="'+cls+'" src="'+src+'" alt="'+alt+'" draggable="false">';
   }
@@ -223,18 +225,18 @@ if(typeof document!=='undefined'){
       const isHand=handId()===id;
       const isActive=state.actor===id&&!['summary','finished','ready'].includes(state.stage);
       const isCutter=state.cutter===id;
-      const isLast=state.lastActor===id&&!!state.lastAction;
+      const isLast=!!state.calls[id];
       player.classList.toggle('is-hand',isHand);
       player.classList.toggle('is-active',isActive);
       player.classList.toggle('is-cutter',isCutter);
       player.classList.toggle('is-last',isLast);
-      player.dataset.call=isLast?state.lastAction:'';
+      player.dataset.call=state.calls[id]||'';
 
       const tags=[];
       if(isHand)tags.push('MANO');
       if(isCutter)tags.push('CORTA');
       if(isActive)tags.push('TURNO');
-      if(isLast&&!tags.includes(state.lastAction))tags.push(state.lastAction);
+      if(isLast)tags.push(state.calls[id]);
       $('turno-j'+id.at(-1)).textContent=tags.length?'· '+tags.join(' · '):'';
 
       const box=$('cartas-j'+id.at(-1));box.replaceChildren();
@@ -243,7 +245,7 @@ if(typeof document!=='undefined'){
           const b=document.createElement('button');
           b.type='button';
           b.className='card '+suitColor[c.palo]+(state.selected.has(i)?' selected':'');
-          b.disabled=state.stage!=='mus';
+          b.disabled=state.stage!=='mus'||state.actor!=='jugador1';
           b.setAttribute('aria-pressed',String(state.selected.has(i)));
           b.setAttribute('aria-label',(figureName[c.numero]||c.numero)+' de '+c.palo+(state.selected.has(i)?', seleccionada':''));
           const face=cardNode(c);
@@ -261,24 +263,20 @@ if(typeof document!=='undefined'){
       });
     });
     const musBtn=$('btn-mus');
-    if(musBtn)musBtn.disabled=state.stage!=='mus'||state.selected.size===0;
+    if(musBtn)musBtn.disabled=state.stage!=='mus'||state.actor!=='jugador1'||state.selected.size===0;
     renderHandStrength();
   }
 
   function freshHand(){
-    state.handNumber++;
-    state.mano=(state.handNumber-1)%4;
-    state.deck=MusRules.shuffle(MusRules.deck());
-    state.discard=[];
+    state.flowToken++;state.handNumber++;state.mano=(state.handNumber-1)%4;
+    state.deck=MusRules.shuffle(MusRules.deck());state.discard=[];
     state.hands=Object.fromEntries(MusRules.ids.map(id=>[id,[]]));
-    for(let i=0;i<4;i++)for(const id of MusRules.order(state.mano))state.hands[id].push(state.deck.pop());
-    state.selected.clear();state.musTurns=0;state.stage='mus';state.phases=[];state.phaseIndex=0;state.bets={};state.pending=null;
-    state.revealed=false;state.note='';state.result=[];state.cutter=null;state.lastActor=null;state.lastAction='';state.actionLog=[];state.flowToken++;setActor('jugador1');
-    $('resumen').innerHTML='<p class="empty">Aquí aparecerán los resultados al descubrir las cartas.</p>';
-    $('cuenta-descartes').textContent='(0)';
-    panel('mus');
-    status('Selecciona las cartas que quieras cambiar.','Para dar mus debes descartar al menos una carta. También puedes cortar. La mano avanza a derechas.','TU TURNO');
-    render();
+    for(let i=0;i<4;i++)for(const id of order())state.hands[id].push(state.deck.pop());
+    state.selected.clear();state.musTurns=0;state.stage='mus';state.phases=[];state.phaseIndex=0;
+    state.bets={};state.pending=null;state.offer=null;state.revealed=false;state.note='';state.result=[];
+    state.cutter=null;state.lastActor=null;state.lastAction='';state.calls={};state.actionLog=[];
+    state.cursor=0;state.musCalls={};$('resumen').innerHTML='<p class="empty">Aquí aparecerán los resultados al descubrir las cartas.</p>';
+    $('cuenta-descartes').textContent='(0)';step();
   }
 
   function aiDiscard(hand){
@@ -296,226 +294,120 @@ if(typeof document!=='undefined'){
     return state.deck.pop();
   }
 
-  function giveMus(){
-    if(state.stage!=='mus')return;
-    if(state.selected.size===0){
-      status('Selecciona al menos una carta.','Para dar mus debes descartar como mínimo una carta.','MUS');
-      render();return;
+  function step(){
+    if(state.stage==='mus')return musStep();
+    if(state.stage==='declarations')return declarationStep();
+    if(state.stage==='opening')return openingStep();
+    if(state.stage==='response')return responseStep();
+  }
+  function speak(id,action,detail){
+    setActor(id,action);panel('none');status(label[id]+': '+action+'.',detail||'Sigue el turno a derechas.',phaseName[phase()]||'MUS');render();state.actor=null;
+    schedule(step);
+  }
+  function musStep(){
+    if(state.cursor===4){
+      const selections={};for(const id of order())selections[id]=id==='jugador1'?[...state.selected]:aiDiscard(state.hands[id]);
+      for(const id of order())for(const i of selections[id])state.discard.push(state.hands[id][i]);
+      for(const id of order())for(const i of selections[id])state.hands[id][i]=draw();
+      state.selected.clear();state.musTurns++;state.musCalls={};state.cursor=0;state.calls={};
+      $('cuenta-descartes').textContent='(0)';status('Descarte completado · vuelta '+state.musTurns+'.','La mano vuelve a hablar primero.','MUS');render();schedule(step,950);return;
     }
-    const aiIds=MusRules.ids.filter(id=>id!=='jugador1');
-    const cutter=MusRules.order(state.mano).filter(id=>id!=='jugador1').find(id=>{
-      const h=state.hands[id];
-      return MusRules.sum(h)===31||MusRules.pairs(h).tier>=2||aiDiscard(h).length===0;
+    const id=order()[state.cursor];setActor(id);render();
+    if(id==='jugador1'){panel('mus');status('Te toca hablar de mus.','Selecciona al menos una carta para dar mus o corta.','TU TURNO');render();return;}
+    panel('none');status('Habla '+label[id]+'.','La mesa sigue a derechas.','MUS');render();
+    schedule(()=>{
+      if(state.stage!=='mus')return;
+      const h=state.hands[id];const cut=MusRules.sum(h)===31||MusRules.pairs(h).tier>=2||aiDiscard(h).length===0;
+      musAction(id,cut);
     });
-    if(cutter){
-      state.cutter=cutter;setActor(cutter,'CORTA');
-      startBetting(label[cutter]+' corta el mus.',cutter);return;
-    }
-
-    const selections={jugador1:[...state.selected],...Object.fromEntries(aiIds.map(id=>[id,aiDiscard(state.hands[id])]))};
-    const removed=[];
-    for(const id of MusRules.ids)for(const i of selections[id])removed.push(state.hands[id][i]);
-    state.discard.push(...removed);
-    for(const id of MusRules.order(state.mano))for(const i of selections[id])state.hands[id][i]=draw();
-    state.selected.clear();state.musTurns++;$('cuenta-descartes').textContent='(0)';setActor('jugador1','MUS');
-    status('Mus dado · vuelta '+state.musTurns+'.','Has cambiado '+selections.jugador1.length+' carta'+(selections.jugador1.length===1?'':'s')+'. Puedes volver a dar mus o cortar.','MUS');
-    render();
   }
-
-  function startBetting(note,cutter=null){
-    state.selected.clear();state.note=note;if(cutter)state.cutter=cutter;
-    state.phases=MusRules.phases(state.hands);state.phaseIndex=0;state.stage='betting';preparePhase();
+  function musAction(id,cut){
+    if(state.stage!=='mus'||state.actor!==id)return;
+    if(cut){state.cutter=id;state.calls={};setActor(id,'CORTO MUS');state.stage='declarations';state.phases=MusRules.phases(state.hands);state.phaseIndex=0;
+      state.declarations=order();state.cursor=0;panel('none');status(label[id]+' corta el mus.','Empiezan las declaraciones y los lances desde la mano.','CORTO MUS');render();schedule(preparePhase,1050);return;}
+    state.musCalls[id]=true;state.cursor++;speak(id,'MUS','Habla el siguiente jugador.');
   }
-
-  function partnerWants(f){
-    const h=state.hands.jugador3;
-    if(f==='PARES'){
-      const p=MusRules.pairs(h);return p.tier>=2||p.values[0]===12;
-    }
-    if(f==='JUEGO')return [31,32].includes(MusRules.sum(h));
-    return false;
-  }
-
-  function partnerVeryStrong(f){
-    const h=state.hands.jugador3;
-    if(f==='PARES')return MusRules.pairs(h).tier===3;
-    if(f==='JUEGO')return MusRules.sum(h)===31;
-    return false;
-  }
-
+  function giveMus(){if(state.stage==='mus'&&state.actor==='jugador1'){
+    if(!state.selected.size){status('Selecciona al menos una carta.','Para dar mus debes descartar como mínimo una carta.','MUS');return;}
+    musAction('jugador1',false);
+  }}
   function preparePhase(){
-    while(state.phaseIndex<state.phases.length&&!MusRules.canBet(state.hands,phase())){
-      state.bets[phase()]={status:'automatic',amount:0};state.phaseIndex++;
-    }
-    if(state.phaseIndex>=state.phases.length){
-      state.stage='ready';state.actor=null;panel('resolver');
-      status('Lances terminados.','Muestra las cartas para conocer el resultado de la mano.','A DESCUBRIR');render();return;
-    }
-
+    if(state.phaseIndex>=state.phases.length){state.stage='ready';state.actor=null;panel('resolver');status('Lances terminados.','Muestra las cartas para puntuar la mano.','A DESCUBRIR');render();return;}
+    state.calls={};state.cursor=0;state.offer=null;state.pending=null;state.passedSides=new Set();
     const f=phase();
-    if(!playerCanSpeak(f)&&partnerCanSpeak(f)){
-      state.stage='partner';panel('none');
-      const declaration=f==='PARES'?'CANTA PARES':'TIENE JUEGO';
-      setActor('jugador3',declaration);
-      const why=f==='PARES'?'Tú no llevas pares. Tu compañero sí.':'Tú no llevas juego. Tu compañero sí.';
-      status(phaseName[f]+': habla tu compañero.',why+' Vas a ver sus decisiones en la mesa.','COMPAÑERO');render();
-      schedule(()=>partnerLead(f),1000);return;
+    if(f==='PARES'||f==='JUEGO'||f==='PUNTO'){state.stage='declarations';state.declarations=order();}
+    else{state.stage='opening';state.opening=order();}
+    step();
+  }
+  function declarationStep(){
+    if(state.cursor>=state.declarations.length){
+      if(phase()==='PARES'&&!MusRules.canBet(state.hands,phase())){state.bets[phase()]={status:'automatic',amount:0};state.phaseIndex++;schedule(preparePhase);return;}
+      state.stage='opening';state.cursor=0;state.calls={};state.opening=order().filter(id=>enabled(id,phase()));schedule(step);return;
     }
-
-    state.stage='betting';panel('apuestas');setActor('jugador1');
-    status(phaseName[f]+': ¿qué hacemos?',state.note||'Puedes pasar, envidar 2 piedras o lanzar un órdago.','TU TURNO');
-    state.note='';render();
+    const id=state.declarations[state.cursor++];const yes=phase()==='PUNTO'?MusRules.qualifies(state.hands[id],'JUEGO'):enabled(id,phase());setActor(id);
+    const call=phase()==='PARES'?(yes?'PARES':'NO PARES'):(yes?'JUEGO':'NO JUEGO');
+    panel('none');speak(id,call,'Cada jugador declara individualmente.');
   }
-
-  function advance(){state.phaseIndex++;preparePhase();}
-
-  function aiWants(f){
-    const theirs=['jugador2','jugador4'].map(id=>state.hands[id]).filter(h=>MusRules.qualifies(h,f));
-    if(f==='GRANDE')return theirs.some(h=>h.filter(c=>MusRules.rank(c)===12).length>=2);
-    if(f==='CHICA')return theirs.some(h=>h.filter(c=>MusRules.rank(c)===1).length>=2);
-    if(f==='PARES')return theirs.some(h=>MusRules.pairs(h).tier>=2||MusRules.pairs(h).values[0]===12);
-    if(f==='JUEGO')return theirs.some(h=>[31,32].includes(MusRules.sum(h)));
-    return theirs.some(h=>MusRules.sum(h)>=28);
+  function openingStep(){
+    if(state.cursor>=state.opening.length){state.bets[phase()]={status:'passed',amount:0};state.phaseIndex++;schedule(preparePhase);return;}
+    const id=state.opening[state.cursor];setActor(id);render();
+    if(id==='jugador1'){panel('apuestas');status(phaseName[phase()]+': hablas tú.','Puedes pasar, envidar 2 o lanzar órdago.','TU TURNO');render();return;}
+    panel('none');status(phaseName[phase()]+': habla '+label[id]+'.','Esperando su decisión.','LANCE');render();
+    schedule(()=>{
+      if(state.stage!=='opening'||state.actor!==id)return;
+      openingAction(id,aiStrong(id,phase())?'bet':'pass');
+    });
   }
-
-  function aiVeryStrong(f){
-    const theirs=['jugador2','jugador4'].map(id=>state.hands[id]).filter(h=>MusRules.qualifies(h,f));
-    if(f==='GRANDE')return theirs.some(h=>h.filter(c=>MusRules.rank(c)===12).length>=3);
-    if(f==='CHICA')return theirs.some(h=>h.filter(c=>MusRules.rank(c)===1).length>=3);
-    if(f==='PARES')return theirs.some(h=>MusRules.pairs(h).tier===3);
-    if(f==='JUEGO')return theirs.some(h=>MusRules.sum(h)===31);
-    return theirs.some(h=>MusRules.sum(h)===30);
+  function openingAction(id,action){
+    if(state.stage!=='opening'||state.actor!==id)return;
+    if(action==='pass'){state.passedSides.add(side(id));state.cursor++;speak(id,'PASO');return;}
+    const ordago=action==='ordago';state.offer={side:side(id),amount:ordago?40:2,previous:0,ordago};
+    beginResponse(id,ordago?'ÓRDAGO':'ENVIDO 2');
   }
-
-  function award(side,points){state.scores[side]+=points;return state.scores[side]>=40;}
-
-  function closeGame(side,message){
-    state.stage='finished';state.revealed=true;state.actor=null;panel('fin');render();
-    status((side==='nosotros'?'¡Habéis ganado!':'Ganan los rivales.')+' '+message,'Partida terminada · '+state.scores.nosotros+' a '+state.scores.ellos+' piedras.','FIN DE PARTIDA');
+  function beginResponse(id,call){
+    state.stage='response';state.response=order().filter(x=>side(x)!==side(id)&&enabled(x,phase()));
+    // Quien responde lo hace en orden de mano, sin que el primer rechazo ate a su pareja.
+    state.cursor=0;state.pending={rejected:[],raisedBy:id};speak(id,call,'Responden los dos rivales habilitados, cada uno en su turno.');
   }
-
-  function refused(side,points=1,rejector=null){
-    const f=phase();state.bets[f]={status:'refused',amount:0,side};
-    if(rejector)setActor(rejector,'NO QUIERE');
-    const finished=award(side,points);
-    const who=rejector?label[rejector]:(side==='nosotros'?'Rivales':'Tu equipo');
-    state.note=who+' no quiere. '+(side==='nosotros'?'Tu equipo':'Los rivales')+' cobra'+(points===1?'':'n')+' '+points+' '+(points===1?'piedra.':'piedras.');
-    if(finished){
-      state.revealed=true;$('resumen').replaceChildren();
-      const item=document.createElement('div');item.className='result-row';
-      item.textContent=phaseName[f]+' · apuesta no querida · +'+points+' para '+(side==='nosotros'?'tu equipo':'rivales');
-      $('resumen').append(item);closeGame(side,'La apuesta rechazada dio la piedra decisiva.');return;
+  function responseStep(){
+    if(state.cursor>=state.response.length){
+      const o=state.offer;state.bets[phase()]={status:'refused',amount:0,side:o.side};
+      const points=o.previous||1;state.scores[o.side]+=points;
+      if(state.scores[o.side]>=40){closeGame(o.side,'La apuesta rechazada dio la piedra decisiva.');return;}
+      state.phaseIndex++;schedule(preparePhase);return;
     }
-    advance();
+    const id=state.response[state.cursor];setActor(id);render();
+    if(id==='jugador1'){panel('respuesta');$('btn-envido-mas').textContent='Reenvido · '+(state.offer.amount+2);
+      $('btn-envido-mas').disabled=state.offer.ordago;$('btn-ordago-respuesta').disabled=state.offer.ordago;
+      status(phaseName[phase()]+': responde tú.','Tu compañero puede decidir después si dices «No quiero».','RESPONDE');render();return;}
+    panel('none');status('Responde '+label[id]+'.','La decisión de su pareja es independiente.','RESPUESTA');render();
+    schedule(()=>{
+      if(state.stage!=='response'||state.actor!==id)return;
+      const strong=aiStrong(id,phase());const o=state.offer;
+      responseAction(id,strong&&(o.amount<4||MusRules.compare(MusRules.strength(state.hands[id],phase()),[0])>0)?'accept':'decline');
+    });
   }
-
-  function offerFromRivals(amount,previous,ordago=false){
-    const f=phase();const speaker=rivalSpeaker(f);
-    state.pending={side:'ellos',amount,previous,ordago};
-    setActor(speaker,ordago?'ÓRDAGO':'ENVIDA '+amount);
-
-    if(!playerCanSpeak(f)&&partnerCanSpeak(f)){
-      state.stage='partner-respond';panel('none');
-      status(label[speaker]+' '+(ordago?'lanza órdago.':'envida '+amount+'.'),'Tú no puedes hablar en '+phaseName[f].toLowerCase()+'. Responde tu compañero.','COMPAÑERO');render();
-      schedule(()=>partnerRespond(amount,previous,ordago),1000);return;
+  function responseAction(id,action){
+    if(state.stage!=='response'||state.actor!==id)return;
+    const o=state.offer;
+    if(action==='decline'){state.pending.rejected.push(id);state.cursor++;speak(id,'NO QUIERO',state.cursor<state.response.length?'Su compañero aún puede querer.':'La pareja rechaza el envite.');return;}
+    if(action==='raise'&&o.ordago)return;
+    if(action==='raise'||action==='ordago'){
+      const amount=action==='ordago'?40:o.amount+2;
+      state.offer={side:side(id),amount,previous:o.amount,ordago:action==='ordago'};
+      beginResponse(id,action==='ordago'?'ÓRDAGO':'REENVIDO '+amount);return;
     }
-
-    state.stage='respond';panel('respuesta');
-    $('btn-envido-mas').textContent='Envido más · '+(amount+2);
-    status(label[speaker]+' '+(ordago?'lanza órdago.':'envida '+amount+'.'),'Puedes querer, subir dos piedras, lanzar un órdago o no querer. Si rechazas, cobran '+(previous||1)+'.','RESPONDE');render();
+    state.stage='settling';speak(id,'QUIERO','Envite aceptado.');
+    if(o.ordago){state.bets[phase()]={status:'accepted',amount:40};schedule(()=>showResults(true),AI_DELAY+100);return;}
+    state.bets[phase()]={status:'accepted',amount:o.amount};state.stage='settling';
+    schedule(()=>{state.phaseIndex++;preparePhase();},AI_DELAY+100);
   }
-
-  function aiAnswer(amount,previous,ordago=false){
-    const f=phase();const speaker=rivalSpeaker(f);
-    state.stage='ai';panel('none');
-    if(!aiWants(f)||(amount>=4&&!aiVeryStrong(f))){
-      setActor(speaker,'NO QUIERE');
-      status(label[speaker]+' no quiere.',(previous||1)+' '+((previous||1)===1?'piedra':'piedras')+' para tu equipo.','RIVALES');render();
-      schedule(()=>refused('nosotros',previous||1,speaker));return;
-    }
-    if(ordago){
-      setActor(speaker,'QUIERO');
-      status(label[speaker]+': quiero el órdago.','Se muestran las cartas para resolver la partida.','RIVALES');render();
-      schedule(()=>{state.bets[f]={status:'accepted',amount:40};showResults(true);});return;
-    }
-    if(aiVeryStrong(f)&&amount<6){
-      schedule(()=>offerFromRivals(amount+2,amount,false),500);return;
-    }
-    setActor(speaker,'QUIERO');state.bets[f]={status:'accepted',amount};
-    status(label[speaker]+': quiero.','Apuesta aceptada de '+amount+' piedras.','RIVALES');render();
-    schedule(()=>{state.note=label[speaker]+': quiero. Apuesta aceptada de '+amount+' piedras.';advance();});
-  }
-
-
-  function partnerLead(f){
-    if(state.stage!=='partner'||phase()!==f)return;
-    if(partnerWants(f)){
-      setActor('jugador3','ENVIDA 2');state.stage='partner-action';panel('none');
-      status('Compañero: envido 2.','Ahora responden los rivales.','COMPAÑERO');render();
-      schedule(()=>aiAnswer(2,0,false));
-    }else{
-      setActor('jugador3','PASA');state.stage='partner-action';panel('none');
-      status('Compañero: paso.','Los rivales deciden si también pasan o envidan.','COMPAÑERO');render();
-      schedule(()=>{
-        if(aiWants(f))offerFromRivals(2,0,false);
-        else{state.bets[f]={status:'passed',amount:0};state.note='Tu compañero pasa y los rivales también.';advance();}
-      });
-    }
-  }
-
-  function partnerRespond(amount,previous,ordago=false){
-    const f=phase();state.pending=null;state.stage='partner-action';panel('none');
-    if(!partnerWants(f)||(amount>=4&&!partnerVeryStrong(f))){
-      setActor('jugador3','NO QUIERE');
-      status('Compañero: no quiero.',(previous||1)+' '+((previous||1)===1?'piedra':'piedras')+' para los rivales.','COMPAÑERO');render();
-      schedule(()=>refused('ellos',previous||1,'jugador3'));return;
-    }
-    if(ordago){
-      setActor('jugador3','QUIERO');
-      status('Compañero: quiero el órdago.','Se muestran las cartas para resolver la partida.','COMPAÑERO');render();
-      schedule(()=>{state.bets[f]={status:'accepted',amount:40};showResults(true);});return;
-    }
-    if(partnerVeryStrong(f)&&amount<6){
-      const raised=amount+2;setActor('jugador3','REENVIDA '+raised);
-      status('Compañero: reenvido '+raised+'.','Los rivales deben responder.','COMPAÑERO');render();
-      schedule(()=>aiAnswer(raised,amount,false));return;
-    }
-    setActor('jugador3','QUIERO');state.bets[f]={status:'accepted',amount};
-    status('Compañero: quiero.','Apuesta aceptada de '+amount+' piedras.','COMPAÑERO');render();
-    schedule(()=>{state.note='Compañero: quiero. Apuesta aceptada de '+amount+' piedras.';advance();});
-  }
-
-
-  function playerPass(){
-    if(state.stage!=='betting')return;
-    const f=phase();setActor('jugador1','PASA');
-    if(aiWants(f))offerFromRivals(2,0,false);
-    else{state.bets[f]={status:'passed',amount:0};state.note='Tú pasas y los rivales también.';advance();}
-  }
-
-  function playerBet(ordago=false){
-    if(state.stage!=='betting')return;
-    const f=phase();
-    if(!playerCanSpeak(f))return;
-    setActor('jugador1',ordago?'ÓRDAGO':'ENVIDA 2');
-    aiAnswer(ordago?40:2,0,ordago);
-  }
-
-  function respond(accept){
-    if(state.stage!=='respond')return;
-    const pending=state.pending;state.pending=null;
-    if(!accept){setActor('jugador1','NO QUIERE');refused('ellos',pending.previous||1,'jugador1');return;}
-    if(pending.ordago){setActor('jugador1','QUIERO');state.bets[phase()]={status:'accepted',amount:40};showResults(true);return;}
-    setActor('jugador1','QUIERO');state.bets[phase()]={status:'accepted',amount:pending.amount};
-    state.note='Tú: quiero. Apuesta aceptada de '+pending.amount+' piedras.';advance();
-  }
-
-  function respondRaise(ordago=false){
-    if(state.stage!=='respond'||state.pending?.ordago)return;
-    const previous=state.pending.amount;state.pending=null;state.stage='betting';
-    setActor('jugador1',ordago?'ÓRDAGO':'REENVIDA '+(previous+2));
-    aiAnswer(ordago?40:previous+2,previous,ordago);
-  }
+  function playerPass(){if(state.stage==='opening'&&state.actor==='jugador1')openingAction('jugador1','pass');}
+  function playerBet(ordago=false){if(state.stage==='opening'&&state.actor==='jugador1')openingAction('jugador1',ordago?'ordago':'bet');}
+  function respond(accept){if(state.stage==='response'&&state.actor==='jugador1')responseAction('jugador1',accept?'accept':'decline');}
+  function respondRaise(ordago=false){if(state.stage==='response'&&state.actor==='jugador1')responseAction('jugador1',ordago?'ordago':'raise');}
+  function closeGame(winner,message){state.stage='finished';state.revealed=true;state.actor=null;panel('fin');render();status((winner==='nosotros'?'¡Habéis ganado!':'Ganan los rivales.')+' '+message,'Partida terminada · '+state.scores.nosotros+' a '+state.scores.ellos+' piedras.','FIN DE PARTIDA');}
+  function award(winner,points){state.scores[winner]+=points;return state.scores[winner]>=40;}
 
   function showResults(ordago=false){
     if(!ordago&&state.stage!=='ready')return;
@@ -559,8 +451,8 @@ if(typeof document!=='undefined'){
 
   $('btn-mus').addEventListener('click',giveMus);
   $('btn-cortar').addEventListener('click',()=>{
-    if(state.stage==='mus'){
-      state.cutter='jugador1';setActor('jugador1','CORTA');startBetting('Tú cortas el mus.','jugador1');
+    if(state.stage==='mus'&&state.actor==='jugador1'){
+      musAction('jugador1',true);
     }
   });
   $('btn-paso').addEventListener('click',playerPass);
