@@ -104,7 +104,7 @@ if(typeof document!=='undefined'){
     Bastos:'assets/bastos.png'
   };
   const figureAsset={10:'assets/sota.png',11:'assets/caballo.png',12:'assets/rey.jpg'};
-  const AI_DELAY=720;
+  const AI_DELAY=1100;
   const TIPS_KEY='tecnimus-consejos';
   let tipsEnabled=false;
   try{tipsEnabled=localStorage.getItem(TIPS_KEY)==='on';}catch(e){}
@@ -323,7 +323,7 @@ if(typeof document!=='undefined'){
       for(const id of order())for(const i of selections[id])state.discard.push(state.hands[id][i]);
       for(const id of order())for(const i of selections[id])state.hands[id][i]=draw();
       state.selected.clear();state.musTurns++;state.musCalls={};state.cursor=0;state.calls={};
-      $('cuenta-descartes').textContent='(0)';status('Descarte completado · vuelta '+state.musTurns+'.','La mano vuelve a hablar primero.','MUS');render();schedule(step,950);return;
+      $('cuenta-descartes').textContent='(0)';status('Descarte completado · vuelta '+state.musTurns+'.','La mano vuelve a hablar primero.','MUS');render();schedule(step,1200);return;
     }
     const id=order()[state.cursor];setActor(id);render();
     if(id==='jugador1'){panel('mus');status('Te toca hablar de mus.','Selecciona al menos una carta para dar mus o corta.','TU TURNO');render();return;}
@@ -337,7 +337,7 @@ if(typeof document!=='undefined'){
   function musAction(id,cut){
     if(state.stage!=='mus'||state.actor!==id)return;
     if(cut){state.cutter=id;state.calls={};setActor(id,'CORTO MUS');state.stage='declarations';state.phases=MusRules.phases(state.hands);state.phaseIndex=0;
-      state.declarations=order();state.cursor=0;panel('none');status(label[id]+' corta el mus.','Empiezan las declaraciones y los lances desde la mano.','CORTO MUS');render();schedule(preparePhase,1050);return;}
+      state.declarations=order();state.cursor=0;panel('none');status(label[id]+' corta el mus.','Empiezan las declaraciones y los lances desde la mano.','CORTO MUS');render();schedule(preparePhase,1300);return;}
     state.musCalls[id]=true;state.cursor++;speak(id,'MUS','Habla el siguiente jugador.');
   }
   function giveMus(){if(state.stage==='mus'&&state.actor==='jugador1'){
@@ -354,7 +354,7 @@ if(typeof document!=='undefined'){
   }
   function declarationStep(){
     if(state.cursor>=state.declarations.length){
-      if(phase()==='PARES'&&!MusRules.canBet(state.hands,phase())){state.bets[phase()]={status:'automatic',amount:0};state.phaseIndex++;schedule(preparePhase);return;}
+      if((phase()==='PARES'||phase()==='JUEGO')&&!MusRules.canBet(state.hands,phase())){state.bets[phase()]={status:'automatic',amount:0};state.phaseIndex++;schedule(preparePhase);return;}
       state.stage='opening';state.cursor=0;state.calls={};state.opening=order().filter(id=>enabled(id,phase()));schedule(step);return;
     }
     const id=state.declarations[state.cursor++];const yes=phase()==='PUNTO'?MusRules.qualifies(state.hands[id],'JUEGO'):enabled(id,phase());setActor(id);

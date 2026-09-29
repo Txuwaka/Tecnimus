@@ -1,4 +1,4 @@
-# TecniMus Beta 1
+# TecniMus Beta 1.1
 
 Publica el contenido de esta carpeta en la raíz de tu repositorio de GitHub Pages. Conserva los nombres y la carpeta `assets`.
 
@@ -10,3 +10,5 @@ Publica el contenido de esta carpeta en la raíz de tu repositorio de GitHub Pag
 - Continúa el motor de cuatro turnos individuales de Alpha 4, con declaraciones, envites y mano rotatoria.
 
 La barra y la altura de la mesa se adaptan al tamaño visible de la pantalla. El resto de la página, incluido el resumen y las reglas, puede consultarse al desplazarse.
+
+- Juego sin envite si sólo una pareja lo tiene; conversación de mesa más pausada.
