@@ -129,17 +129,19 @@ if(typeof document!=='undefined'){
 
 
   const SOUND_KEY='tecnimus-sonido';
-  let soundEnabled=true,audioContext=null;
+  let soundEnabled=true,audioContext=null,audioOutput=null;
+  let soundVolume=.5;
+  try{const saved=localStorage.getItem('tecnimus-volumen');if(saved!==null&&Number.isFinite(Number(saved)))soundVolume=Math.max(0,Math.min(1,Number(saved)));}catch(e){}
   try{soundEnabled=localStorage.getItem(SOUND_KEY)!=='off';}catch(e){}
-  function renderSound(){ $('btn-sonido').textContent='Sonido '+(soundEnabled?'ON':'OFF');$('btn-sonido').setAttribute('aria-pressed',String(soundEnabled)); }
+  function renderSound(){ if(audioOutput)audioOutput.gain.setValueAtTime(soundEnabled?soundVolume:0,audioContext.currentTime);$('sound-volume').value=String(Math.round(soundVolume*100));$('volume-value').textContent=Math.round(soundVolume*100)+'%';$('btn-sonido').textContent='Sonido '+(soundEnabled?'ON':'OFF');$('btn-sonido').setAttribute('aria-pressed',String(soundEnabled)); }
   function unlockAudio(){
     if(!soundEnabled)return;
-    try{const Audio=window.AudioContext||window.webkitAudioContext;if(Audio&&!audioContext)audioContext=new Audio();
+    try{const Audio=window.AudioContext||window.webkitAudioContext;if(Audio&&!audioContext){audioContext=new Audio();audioOutput=audioContext.createGain();audioOutput.gain.value=soundEnabled?soundVolume:0;audioOutput.connect(audioContext.destination);}
       if(audioContext?.state==='suspended')audioContext.resume().catch(()=>{});
     }catch(e){}
   }
   function playSound(kind){
-    if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
+    if(!soundEnabled||soundVolume===0||!audioContext||audioContext.state!=='running')return;
     try{
       const at=audioContext.currentTime;
       if(kind==='cards'){
@@ -147,13 +149,14 @@ if(typeof document!=='undefined'){
         for(let i=0;i<frames;i++)data[i]=(Math.random()*2-1)*(1-i/frames);
         const src=audioContext.createBufferSource(),filter=audioContext.createBiquadFilter(),gain=audioContext.createGain();
         src.buffer=buffer;filter.type='highpass';filter.frequency.value=1400;gain.gain.value=.065;
-        src.connect(filter);filter.connect(gain);gain.connect(audioContext.destination);src.start(at);return;
+        src.connect(filter);filter.connect(gain);gain.connect(audioOutput);src.onended=()=>{src.disconnect();filter.disconnect();gain.disconnect();};src.start(at);return;
       }
-      const notes=kind==='ordago'?[330,440,660]:kind==='bet'?[440,587]:kind==='accept'?[523,659]:kind==='win'?[523,659,784]:[kind==='cut'?185:290];
+      const melodies={ordago:[110,165,220,440],bet:[440,587],raise:[392,523,784],accept:[523,659],decline:[330,220],cut:[150],pass:[260],mus:[220,294],declare:[350],select:[700],turn:[660,880],phase:[294,392],signal:[780,940],incoming:[620,830],ack:[880],win:[523,659,784,1046,1318],lose:[440,349,294,220],roundwin:[523,659,784],roundlose:[392,330],reveal:[330,440,554],tap:[510]};
+      const notes=melodies[kind]||melodies.tap;
       notes.forEach((freq,i)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain();
-        osc.type='sine';osc.frequency.value=freq;gain.gain.setValueAtTime(.0001,at+i*.1);
-        gain.gain.exponentialRampToValueAtTime(.035,at+i*.1+.015);gain.gain.exponentialRampToValueAtTime(.0001,at+i*.1+.16);
-        osc.connect(gain);gain.connect(audioContext.destination);osc.start(at+i*.1);osc.stop(at+i*.1+.18);});
+        osc.type=['bet','raise','select'].includes(kind)?'triangle':'sine';osc.frequency.value=freq;gain.gain.setValueAtTime(.0001,at+i*.1);
+        gain.gain.exponentialRampToValueAtTime(.065,at+i*.1+.015);gain.gain.exponentialRampToValueAtTime(.0001,at+i*.1+.16);
+        osc.connect(gain);gain.connect(audioOutput);osc.onended=()=>{osc.disconnect();gain.disconnect();};osc.start(at+i*.1);osc.stop(at+i*.1+.18);});
     }catch(e){}
   }
   const jokes={
@@ -199,10 +202,10 @@ if(typeof document!=='undefined'){
   }
   function sendSignal(key){
     if(!signalWindow()||state.signalPending||state.signalSeen[key]||!handSignals('jugador1').includes(key))return;
-    const rev=state.signalRevision;state.signalPending=key;state.signalReceipt='Enviando: '+signalInfo[key].name;
+    playSound('signal');const rev=state.signalRevision;state.signalPending=key;state.signalReceipt='Enviando: '+signalInfo[key].name;
     $('signal-menu').hidden=true;$('btn-senas').setAttribute('aria-expanded','false');signalGesture('jugador1',key);renderSignals();
     schedule(()=>{if(state.signalRevision!==rev)return;
-      state.signalSeen[key]=true;state.signalPending=null;state.signalReceipt='Socio la ha visto: '+signalInfo[key].name;
+      playSound('ack');state.signalSeen[key]=true;state.signalPending=null;state.signalReceipt='Socio la ha visto: '+signalInfo[key].name;
       signalGesture('jugador3','ack');renderSignals();
     },800);
   }
@@ -214,7 +217,7 @@ if(typeof document!=='undefined'){
       phase()==='PARES'?['duples','medias-reyes','medias-ases','medias','31','ciego']:
       ['31','juego','30','29','duples','medias-reyes','medias-ases','medias','reyes','ases','ciego'];
     const key=preference.find(k=>available.includes(k));if(!key)return;
-    state.partnerSent[key]=true;state.signalIncoming=key;signalGesture('jugador3',key);renderSignals();
+    playSound('incoming');state.partnerSent[key]=true;state.signalIncoming=key;signalGesture('jugador3',key);renderSignals();
   }
   function signSupports(f){
     const seen=state.signalSeen;
@@ -223,6 +226,45 @@ if(typeof document!=='undefined'){
     if(f==='PARES')return !!(seen.duples||seen.medias||seen['medias-reyes']||seen['medias-ases']);
     if(f==='JUEGO')return !!(seen['31']||seen.juego);
     return !!(seen['30']||seen['29']);
+  }
+  const STATS_KEY='tecnimus-estadisticas';
+  const stats={wins:0,losses:0,hands:0,streak:0,bestStreak:0};
+  try{const data=JSON.parse(localStorage.getItem(STATS_KEY)||'{}');for(const key of Object.keys(stats))if(Number.isSafeInteger(data[key])&&data[key]>=0)stats[key]=data[key];}catch(e){}
+  function renderStats(){ $('local-stats').textContent=stats.wins+' victorias · '+stats.losses+' derrotas · '+stats.hands+' manos · mejor racha: '+stats.bestStreak; }
+  function storeStats(){try{localStorage.setItem(STATS_KEY,JSON.stringify(stats));}catch(e){}renderStats();}
+  function recordHand(){if(state.handRecorded)return;state.handRecorded=true;stats.hands++;storeStats();}
+  function recordMatch(winner){if(state.matchRecorded)return;state.matchRecorded=true;recordHand();if(winner==='nosotros'){stats.wins++;stats.streak++;stats.bestStreak=Math.max(stats.bestStreak,stats.streak);}else{stats.losses++;stats.streak=0;}storeStats();}
+  function logEvent(message){state.history.push(message);if(state.history.length>120)state.history.shift();}
+  function renderHistory(){const box=$('hand-history');box.replaceChildren();for(const entry of state.history){const row=document.createElement('li');row.textContent=entry;box.append(row);}}
+  let betContext='';
+  function validAmount(value,min,base=0){return Number.isSafeInteger(value)&&value>=min&&Number.isSafeInteger(base+value+80);}
+  function updateBetControls(){
+    const response=state.stage==='response',min=response?1:2,amount=Number($('bet-amount').value),base=response?state.offer?.amount||0:0;
+    const valid=validAmount(amount,min,base),ordago=response&&state.offer?.ordago;
+    $('bet-error').textContent=!valid?'Introduce un entero desde '+min+'.':'';
+    $('btn-envido').textContent='Envido · '+(valid?amount:'…');$('btn-envido').disabled=!valid;
+    $('btn-envido-mas').textContent='Subo +'+(valid?amount:'…');$('btn-envido-mas').disabled=!valid||!!ordago;
+    $('bet-amount-label').textContent=response?(valid?'Total: '+(base+amount):'Subir +'):'Envidar';
+  }
+  function renderBetControls(){
+    const humanTurn=state.stage==='opening'?state.opening[state.cursor]==='jugador1':state.stage==='response'&&state.response[state.cursor]==='jugador1';
+    const usable=state.actor==='jugador1'&&humanTurn&&!state.offer?.ordago;
+    $('bet-controls').hidden=!usable;
+    if(usable){const key=state.handNumber+':'+state.phaseIndex+':'+state.stage+':'+(state.offer?.amount||0);
+      if(betContext!==key){betContext=key;$('bet-amount').value='2';}
+      $('bet-amount').min=state.stage==='response'?'1':'2';updateBetControls();}
+    const active=state.offer&&['response','settling'].includes(state.stage),chip=$('stake-chip');
+    chip.hidden=!active;if(active){chip.textContent=state.offer.ordago?'¡ÓRDAGO!':state.offer.amount+' PIEDRAS';chip.classList.toggle('high-stakes',state.offer.ordago||state.offer.amount>=10);}
+    document.body.classList.toggle('ordago-live',!!active&&!!state.offer.ordago);
+  }
+  function aiConfidence(id,f){
+    const h=state.hands[id],r=h.map(MusRules.rank),n=MusRules.sum(h),p=MusRules.pairs(h);let confidence=0;
+    if(f==='GRANDE'||f==='CHICA'){const count=r.filter(v=>v===(f==='GRANDE'?12:1)).length;confidence=[.12,.35,.66,.91,.99][count];}
+    else if(f==='PARES')confidence=p.tier===3?(p.values[0]===12?.96:.86):p.tier===2?.8:p.tier===1?(p.values[0]===12?.65:.35):0;
+    else if(f==='JUEGO')confidence=n===31?.96:n===32?.76:n===40?.63:.35;
+    else confidence=n===30?.94:n===29?.78:n===28?.65:.25;
+    if(id==='jugador3'&&signSupports(f))confidence=Math.max(confidence,f==='JUEGO'&&state.signalSeen['31']?.94:.72);
+    return confidence;
   }
   const visualAnimations=new Set();
   function clearVisuals(){for(const a of visualAnimations)a.cancel();visualAnimations.clear();$('flight-layer').replaceChildren();$('discard-zone').hidden=true;}
@@ -270,7 +312,7 @@ if(typeof document!=='undefined'){
   const state={scores:{nosotros:0,ellos:0},handNumber:0,mano:0,hands:{},deck:[],discard:[],selected:new Set(),musTurns:0,
     stage:'mus',phases:[],phaseIndex:0,bets:{},pending:null,revealed:false,note:'',result:[],
     cutter:null,actor:null,lastActor:null,lastAction:'',calls:{},actionLog:[],flowToken:0,cursor:0,
-    musCalls:{},discardCounts:{},banter:{},signalRevision:0,signalSeen:{},partnerSent:{},signalMotion:{},signalIncoming:null,signalPending:null,signalReceipt:'',declarations:[],opening:[],response:[],passedSides:new Set(),offer:null};
+    history:[],handRecorded:false,matchRecorded:false,roundStart:{nosotros:0,ellos:0},musCalls:{},discardCounts:{},banter:{},signalRevision:0,signalSeen:{},partnerSent:{},signalMotion:{},signalIncoming:null,signalPending:null,signalReceipt:'',declarations:[],opening:[],response:[],passedSides:new Set(),offer:null};
   function announce(message){$('anuncio').textContent=message;}
   function status(title,detail,stage){$('mensaje').textContent=title;$('ayuda').textContent=detail;$('etapa').textContent=stage;announce(title+' '+detail);}
   function panel(id){for(const name of ['mus','apuestas','respuesta','resolver','siguiente','fin'])$('panel-'+name).hidden=name!==id;}
@@ -278,12 +320,13 @@ if(typeof document!=='undefined'){
   function handId(){return MusRules.order(state.mano)[0];}
   function side(id){return MusRules.sides[id];}
   function setActor(id,action=''){
-    state.actor=id||null;
+    const previousActor=state.actor;state.actor=id||null;if(!action&&id==='jugador1'&&previousActor!==id)playSound('turn');
     if(id&&action){state.lastActor=id;state.lastAction=action;state.calls[id]=action;
+      logEvent((phaseName[phase()]||'Mus')+' · '+label[id]+': '+action+(action==='QUIERO'&&state.offer?' ('+(state.offer.ordago?'órdago':state.offer.amount+' piedras')+')':''));
       state.actionLog.push(label[id]+': '+action);if(state.actionLog.length>5)state.actionLog.shift();
       const key=action.startsWith('NO ')?'NO':action.startsWith('REENVIDO')?'ENVIDO':action.split(' ')[0];
       const lines=jokes[id]?.[key];state.banter[id]=lines?lines[(state.handNumber+state.actionLog.length)%lines.length]:'';
-      playSound(key==='ÓRDAGO'?'ordago':key==='ENVIDO'?'bet':key==='QUIERO'?'accept':key==='CORTO'?'cut':'pass');}
+      playSound(key==='ÓRDAGO'?'ordago':action.startsWith('REENVIDO')?'raise':key==='ENVIDO'?'bet':key==='QUIERO'?'accept':key==='NO'?'decline':key==='CORTO'?'cut':key==='MUS'?'mus':['PARES','JUEGO'].includes(key)?'declare':'pass');}
   }
   function schedule(fn,delay=AI_DELAY){const token=state.flowToken;window.setTimeout(()=>{if(state.flowToken===token)fn();},delay);}
   function order(){return MusRules.order(state.mano);}
@@ -424,7 +467,7 @@ if(typeof document!=='undefined'){
           b.innerHTML=face.innerHTML;
           if(figureName[c.numero])b.classList.add('figure','figure-'+c.numero);
           b.addEventListener('click',()=>{
-            if(state.selected.has(i))state.selected.delete(i);else state.selected.add(i);
+            playSound('select');if(state.selected.has(i))state.selected.delete(i);else state.selected.add(i);
             $('cuenta-descartes').textContent='('+state.selected.size+')';
             render();
           });
@@ -437,11 +480,11 @@ if(typeof document!=='undefined'){
     if(state.stage==='discarding')for(const id of order())if(state.discardCounts[id]!==undefined)for(const i of state.discardSelections[id])$('cartas-j'+id.at(-1)).children[i].style.visibility='hidden';
     const musBtn=$('btn-mus');
     if(musBtn)musBtn.disabled=state.stage!=='mus'||state.actor!=='jugador1'||state.selected.size===0;
-    renderHandStrength();renderSignals();
+    renderHandStrength();renderSignals();renderBetControls();renderHistory();
   }
 
   function freshHand(){
-    state.flowToken++;clearVisuals();resetSignals();state.discardCounts={};state.banter={};state.handNumber++;state.mano=(state.handNumber-1)%4;
+    state.flowToken++;playSound('cards');clearVisuals();resetSignals();state.discardCounts={};state.banter={};state.handNumber++;state.history=[];state.handRecorded=false;state.roundStart={...state.scores};betContext='';state.mano=(state.handNumber-1)%4;
     state.deck=MusRules.shuffle(MusRules.deck());state.discard=[];
     state.hands=Object.fromEntries(MusRules.ids.map(id=>[id,[]]));
     for(let i=0;i<4;i++)for(const id of order())state.hands[id].push(state.deck.pop());
@@ -504,7 +547,7 @@ if(typeof document!=='undefined'){
   }}
   function preparePhase(){
     if(state.phaseIndex>=state.phases.length){state.stage='ready';state.actor=null;panel('resolver');status('Lances terminados.','Muestra las cartas para puntuar la mano.','A DESCUBRIR');render();return;}
-    state.calls={};state.cursor=0;state.offer=null;state.pending=null;state.passedSides=new Set();
+    playSound('phase');state.calls={};state.cursor=0;state.offer=null;state.pending=null;state.passedSides=new Set();
     const f=phase();
     if(f==='PARES'||f==='JUEGO'||f==='PUNTO'){state.stage='declarations';state.declarations=order();}
     else{state.stage='opening';state.opening=order();}
@@ -526,14 +569,15 @@ if(typeof document!=='undefined'){
     panel('none');status(phaseName[phase()]+': habla '+label[id]+'.','Esperando su decisión.','LANCE');render();
     schedule(()=>{
       if(state.stage!=='opening'||state.actor!==id)return;
-      openingAction(id,aiStrong(id,phase())?'bet':'pass');
+      const confidence=aiConfidence(id,phase());
+      openingAction(id,aiStrong(id,phase())||(confidence>=.35&&Math.random()<.08)?'bet':'pass',confidence>=.9?5:2);
     });
   }
-  function openingAction(id,action){
+  function openingAction(id,action,amount=2){
     if(state.stage!=='opening'||state.actor!==id)return;
     if(action==='pass'){state.passedSides.add(side(id));state.cursor++;speak(id,'PASO');return;}
-    const ordago=action==='ordago';state.offer={side:side(id),amount:ordago?40:2,previous:0,ordago};
-    beginResponse(id,ordago?'ÓRDAGO':'ENVIDO 2');
+    const ordago=action==='ordago';if(!ordago&&!validAmount(amount,2))return;state.offer={side:side(id),amount:ordago?40:amount,previous:0,ordago};
+    beginResponse(id,ordago?'ÓRDAGO':'ENVIDO '+amount);
   }
   function beginResponse(id,call){
     state.stage='response';state.response=order().filter(x=>side(x)!==side(id)&&enabled(x,phase()));
@@ -543,7 +587,7 @@ if(typeof document!=='undefined'){
   function responseStep(){
     if(state.cursor>=state.response.length){
       const o=state.offer;state.bets[phase()]={status:'refused',amount:0,side:o.side};
-      const points=o.previous||1;state.scores[o.side]+=points;
+      const points=o.previous||1;state.scores[o.side]+=points;logEvent('Envite rechazado · '+(o.side==='nosotros'?'Tu equipo':'Rivales')+' cobra '+points+' piedras.');
       if(state.scores[o.side]>=40){closeGame(o.side,'La apuesta rechazada dio la piedra decisiva.');return;}
       state.phaseIndex++;schedule(preparePhase);return;
     }
@@ -554,17 +598,20 @@ if(typeof document!=='undefined'){
     panel('none');status('Responde '+label[id]+'.','La decisión de su pareja es independiente.','RESPUESTA');render();
     schedule(()=>{
       if(state.stage!=='response'||state.actor!==id)return;
-      const strong=aiStrong(id,phase());const o=state.offer;
-      responseAction(id,strong&&(o.amount<4||MusRules.compare(MusRules.strength(state.hands[id],phase()),[0])>0)?'accept':'decline');
+      const confidence=aiConfidence(id,phase()),o=state.offer;
+      const threshold=o.ordago?.94:o.amount<=4?.54:o.amount<=8?.7:o.amount<=16?.82:.94;
+      if(!o.ordago&&confidence>=.9&&o.amount<=6&&Math.random()<.35)responseAction(id,'raise',confidence>=.96?4:2);
+      else responseAction(id,confidence>=threshold?'accept':'decline');
     });
   }
-  function responseAction(id,action){
+  function responseAction(id,action,increment=2){
     if(state.stage!=='response'||state.actor!==id)return;
     const o=state.offer;
     if(action==='decline'){state.pending.rejected.push(id);state.cursor++;speak(id,'NO QUIERO',state.cursor<state.response.length?'Su compañero aún puede querer.':'La pareja rechaza el envite.');return;}
-    if(action==='raise'&&o.ordago)return;
+    if((action==='raise'||action==='ordago')&&o.ordago)return;
+    if(action==='raise'&&!validAmount(increment,1,o.amount))return;
     if(action==='raise'||action==='ordago'){
-      const amount=action==='ordago'?40:o.amount+2;
+      const amount=action==='ordago'?40:o.amount+increment;
       state.offer={side:side(id),amount,previous:o.amount,ordago:action==='ordago'};
       beginResponse(id,action==='ordago'?'ÓRDAGO':'REENVIDO '+amount);return;
     }
@@ -574,15 +621,15 @@ if(typeof document!=='undefined'){
     schedule(()=>{state.phaseIndex++;preparePhase();},AI_DELAY+100);
   }
   function playerPass(){if(state.stage==='opening'&&state.actor==='jugador1')openingAction('jugador1','pass');}
-  function playerBet(ordago=false){if(state.stage==='opening'&&state.actor==='jugador1')openingAction('jugador1',ordago?'ordago':'bet');}
+  function playerBet(ordago=false){if(state.stage==='opening'&&state.actor==='jugador1')openingAction('jugador1',ordago?'ordago':'bet',Number($('bet-amount').value));}
   function respond(accept){if(state.stage==='response'&&state.actor==='jugador1')responseAction('jugador1',accept?'accept':'decline');}
-  function respondRaise(ordago=false){if(state.stage==='response'&&state.actor==='jugador1')responseAction('jugador1',ordago?'ordago':'raise');}
-  function closeGame(winner,message){playSound('win');state.stage='finished';state.revealed=true;state.actor=null;panel('fin');render();status((winner==='nosotros'?'¡Habéis ganado!':'Ganan los rivales.')+' '+message,'Partida terminada · '+state.scores.nosotros+' a '+state.scores.ellos+' piedras.','FIN DE PARTIDA');}
+  function respondRaise(ordago=false){if(state.stage==='response'&&state.actor==='jugador1')responseAction('jugador1',ordago?'ordago':'raise',Number($('bet-amount').value));}
+  function closeGame(winner,message){if(state.stage==='finished')return;recordMatch(winner);playSound(winner==='nosotros'?'win':'lose');document.body.dataset.result=winner==='nosotros'?'win':'lose';state.stage='finished';state.revealed=true;state.actor=null;panel('fin');render();status((winner==='nosotros'?'¡Habéis ganado!':'Ganan los rivales.')+' '+message,'Partida terminada · '+state.scores.nosotros+' a '+state.scores.ellos+' piedras.','FIN DE PARTIDA');}
   function award(winner,points){state.scores[winner]+=points;return state.scores[winner]>=40;}
 
   function showResults(ordago=false){
     if(!ordago&&state.stage!=='ready')return;
-    state.revealed=true;const phases=ordago?[phase()]:state.phases;
+    playSound('reveal');state.revealed=true;const phases=ordago?[phase()]:state.phases;
     const rows=[];let finalSide=null;
     for(const f of phases){
       const winner=MusRules.winner(state.hands,f,state.mano);if(!winner)continue;
@@ -614,19 +661,24 @@ if(typeof document!=='undefined'){
     });
     if(ordago){state.scores[finalSide]=40;render();closeGame(finalSide,'Órdago querido.');return;}
     if(finalSide){closeGame(finalSide,'Se alcanzaron las 40 piedras.');return;}
-    state.stage='summary';panel('siguiente');render();
+    recordHand();const own=state.scores.nosotros-state.roundStart.nosotros,other=state.scores.ellos-state.roundStart.ellos;playSound(own>other?'roundwin':own<other?'roundlose':'tap');state.stage='summary';panel('siguiente');render();
     status('Mano resuelta.','Revisa las cartas y el resumen. La mano pasa al jugador de la derecha.','RESULTADOS');
   }
 
-  function newGame(){state.scores={nosotros:0,ellos:0};state.handNumber=0;freshHand();}
+  function newGame(){state.matchRecorded=false;document.body.dataset.result='';state.scores={nosotros:0,ellos:0};state.handNumber=0;freshHand();}
 
-  $('btn-senas').addEventListener('click',()=>{if(!signalWindow())return;const menu=$('signal-menu');menu.hidden=!menu.hidden;$('btn-senas').setAttribute('aria-expanded',String(!menu.hidden));renderSignals();});
-  $('btn-sena-vista').addEventListener('click',()=>{state.signalIncoming=null;renderSignals();});
+  $('bet-amount').addEventListener('input',updateBetControls);
+  for(const button of document.querySelectorAll('[data-bet]'))button.addEventListener('click',()=>{$('bet-amount').value=button.dataset.bet;updateBetControls();playSound('tap');});
+  $('sound-volume').addEventListener('input',()=>{soundVolume=Number($('sound-volume').value)/100;try{localStorage.setItem('tecnimus-volumen',String(soundVolume));}catch(e){}renderSound();});
+  $('sound-volume').addEventListener('change',()=>{unlockAudio();playSound('bet');});
+  renderStats();
+  $('btn-senas').addEventListener('click',()=>{if(!signalWindow())return;playSound('tap');const menu=$('signal-menu');menu.hidden=!menu.hidden;$('btn-senas').setAttribute('aria-expanded',String(!menu.hidden));renderSignals();});
+  $('btn-sena-vista').addEventListener('click',()=>{state.signalIncoming=null;playSound('ack');renderSignals();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){$('signal-menu').hidden=true;$('btn-senas').setAttribute('aria-expanded','false');}});
   document.addEventListener('pointerdown',unlockAudio);document.addEventListener('keydown',unlockAudio);
   $('btn-sonido').addEventListener('click',()=>{soundEnabled=!soundEnabled;try{localStorage.setItem(SOUND_KEY,soundEnabled?'on':'off');}catch(e){}renderSound();if(soundEnabled){unlockAudio();playSound('accept');}});
   renderSound();
-  $('btn-consejos').addEventListener('click',()=>{tipsEnabled=!tipsEnabled;try{localStorage.setItem(TIPS_KEY,tipsEnabled?'on':'off');}catch(e){}renderTips();});
+  $('btn-consejos').addEventListener('click',()=>{tipsEnabled=!tipsEnabled;playSound('tap');try{localStorage.setItem(TIPS_KEY,tipsEnabled?'on':'off');}catch(e){}renderTips();});
   renderTips();
   $('btn-mus').addEventListener('click',giveMus);
   $('btn-cortar').addEventListener('click',()=>{

@@ -1,20 +1,23 @@
-# TecniMus Beta 3 — El guiño del socio
+# TecniMus Beta 4 — Más juego, más carácter
 
-Sube el contenido de esta carpeta a la raíz de tu repositorio de GitHub Pages. Conserva los nombres y la carpeta `assets`.
+Sube el contenido de esta carpeta a la raíz de tu repositorio de GitHub Pages, manteniendo `assets` y los nombres de los archivos. El motor continúa la base de Beta 3.
 
-## Novedades
+## Apuestas
 
-- Logo nuevo en cabecera, tapete, favicon, iconos normales y acceso directo adaptable.
-- Botón Señas: ofrece gestos compatibles con tus cartas. El compañero confirma que ha visto la seña y puede usar esa información en su siguiente decisión.
-- El compañero también hace señas animadas. Pulsa Visto para confirmar que las has leído.
-- Las señas se reinician al descartar o empezar otra mano. No están disponibles durante el reparto ni antes de cortar el primer mus. Las medias de otras cartas se habilitan después de Grande.
-- Letra de cómic en los elementos de la mesa y controles. Los números de las cartas conservan su lectura clara.
-- Espadas reducidas de forma específica, manteniendo las imágenes personalizadas.
+Escribe la cantidad del envite o usa los accesos 2, 5 y 10. El envite inicial admite enteros desde 2. Para reenvidar, escribe cuánto quieres **añadir** (desde 1): se muestra el total antes de pulsar Subo. Siempre puedes querer, no querer o echar órdago. Un órdago sólo admite querer o no querer.
 
-Se conservan las animaciones, sonidos opcionales, consejos, puntuación y turnos de Beta 2.
+La cantidad en juego aparece en el tapete. La IA considera tanto su mano y las señas recibidas como el tamaño de la apuesta; también puede iniciar apuestas mayores y reenvidar.
 
-Las señas toman como referencia el capítulo VII del [reglamento ASESMUS](https://www.asesmus.com/wp-content/uploads/2023/03/Reglamento-Asesmus-2_03.pdf). El juego mantiene su modalidad actual de mesa, sin adaptar otros artículos del reglamento.
+## Sonido y ambiente
 
-La tipografía web requiere conexión en su primera carga; hay alternativas del sistema disponibles. Para actualizar un acceso directo antiguo, puede ser necesario quitarlo y crearlo otra vez, porque el sistema guarda su icono.
+Efectos diferenciados para selección de cartas, mus, corte, paso, envite, subida, seña enviada/recibida, confirmación, turno, cambio de lance, reparto, revelado, victoria y derrota. El volumen y el interruptor se guardan en el navegador. El audio comienza tras interactuar con la página. El órdago destaca visualmente y respeta la preferencia de reducir movimiento.
 
-Pruebas por simulación: mano completa, rotación, respuestas individuales, órdago, juego exclusivo, descarte animado, integridad de baraja, reinicio, señas válidas, confirmación, información recibida por la IA y caducidad de señas. Iconos y recursos offline verificados. Queda pendiente la revisión visual y auditiva en un navegador real.
+## Más información
+
+La libreta conserva la conversación de la mano actual (hasta 120 acciones). Las estadísticas locales registran victorias, derrotas, manos y mejor racha. No se envían a ningún servidor. Una partida reiniciada sin terminar no cuenta como victoria ni derrota.
+
+Se mantienen las señas, logo, baraja, descartes animados, turnos individuales, consejos opcionales y controles móviles.
+
+## Pruebas de desarrollo
+
+Ejecuta `node tests/regression.cjs` para comprobar el motor por simulación: turnos, puntuación, señas, descarte, envites personalizados, subidas, rechazo, presión de apuestas para la IA, estadísticas y salida de audio simulada. La prueba utiliza un DOM simulado; la revisión visual y auditiva en navegador real queda pendiente.
