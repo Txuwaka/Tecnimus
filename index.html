@@ -2,6 +2,8 @@
 <html lang="es">
 <head>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#122c28">
@@ -12,7 +14,7 @@
 <body>
   <div class="app">
     <header class="topbar">
-      <div class="brand"><span class="brand-icon" aria-hidden="true">✦</span><div><span class="eyebrow">LA TIMBA DE TECNIMUS</span><h1>TecniMus</h1></div></div>
+      <div class="brand"><img class="brand-logo" src="assets/logo.png" alt="Logo TecniMus"><div><span class="eyebrow">LA TIMBA DE TECNIMUS</span><h1>TecniMus</h1></div></div>
       <div class="scoreboard" aria-label="Marcador de la partida">
         <div class="team"><span>Tu equipo</span><strong id="pts-nosotros">0</strong><small>de 40</small></div>
         <span class="score-divider" aria-hidden="true">:</span>
@@ -37,6 +39,8 @@
 
       <section class="action-panel" aria-label="Acciones de juego">
         <div class="action-copy"><span class="eyebrow" id="etapa">TU TURNO</span><h2 id="mensaje">Selecciona las cartas que quieras cambiar.</h2><p id="ayuda" class="tips-only">Para dar mus debes seleccionar al menos una carta para descartar, o puedes cortar para empezar los lances.</p><div class="hand-strength tips-only" id="fuerza-mano" aria-label="Lectura de tu mano"></div></div>
+        <div class="signal-toolbar"><button class="signal-button" id="btn-senas" type="button" aria-expanded="false" aria-controls="signal-menu">Señas</button><span id="signal-receipt" role="status" aria-live="polite"></span><span id="signal-inbox" role="status" aria-live="polite"></span><button type="button" class="signal-button" id="btn-sena-vista" hidden>Visto</button></div>
+        <div class="signal-menu" id="signal-menu" hidden><strong>Un gesto para tu socio</strong><div id="signal-options"></div></div>
         <div class="actions">
           <div class="action-group" id="panel-mus"><button type="button" class="button primary" id="btn-mus" disabled>Dar mus <span id="cuenta-descartes">(0)</span></button><button type="button" class="button secondary" id="btn-cortar">Cortar mus</button></div>
           <div class="action-group" id="panel-apuestas" hidden><button type="button" class="button secondary" id="btn-paso">Paso</button><button type="button" class="button primary" id="btn-envido">Envido · 2</button><button type="button" class="button dramatic" id="btn-ordago">Órdago</button></div>
@@ -49,7 +53,7 @@
 
       <div class="below"><section class="round-summary" aria-labelledby="resumen-titulo"><h2 id="resumen-titulo">Resumen de la mano</h2><div id="resumen"><p class="empty">Aquí aparecerán los resultados al descubrir las cartas.</p></div></section><section class="rules" aria-labelledby="reglas-titulo"><h2 id="reglas-titulo">Cómo jugar</h2><p>Selecciona cartas y da mus para cambiarlas. Corta cuando quieras. Cada jugador habla individualmente en orden desde la mano. Ante un envido puedes querer, subir dos piedras, lanzar órdago o no querer.</p><p>Se juegan grande, chica, pares y juego (o punto si nadie tiene juego). En pares y juego sólo habla quien lleva ese lance; sólo intervienen quienes los llevan. Cada pareja decide por separado. En los empates gana quien esté más cerca de la mano. La mano y el turno avanzan a derechas. El primer equipo en llegar a 40 piedras gana.</p><p class="variant">Variante: 8 reyes y 8 ases (tres = rey; doses = as). El órdago querido decide la partida al mostrar las cartas.</p></section></div>
     </main>
-    <footer>TECNI<span>MUS</span> · Beta 2 · Una partida, cuatro jugadores, cuarenta piedras.</footer>
+    <footer>TECNI<span>MUS</span> · Beta 3 · Una partida, cuatro jugadores, cuarenta piedras.</footer>
   </div>
   <div class="sr-only" id="anuncio" role="status" aria-live="polite"></div>
   

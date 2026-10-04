@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tecnimus-cache-beta-2';
+const CACHE_NAME = 'tecnimus-cache-beta-3';
 const urlsToCache = [
   './',
   './index.html',
@@ -6,6 +6,10 @@ const urlsToCache = [
   './mus.js',
   './manifest.json',
   './icono-192.png',
+  './assets/logo.png',
+  './favicon.png',
+  './apple-touch-icon.png',
+  './icono-maskable-512.png',
   './icono-512.png',
   './assets/oros.png',
   './assets/copas.png',

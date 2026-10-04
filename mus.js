@@ -83,7 +83,24 @@ const MusRules = (() => {
     return 1;
   }
 
-  return {ids,sides,rank,sum,deck,shuffle,pairs,strength,compare,qualifies,order,winner,phases,canBet,intrinsic};
+  // Señas verdaderas, sin señas parciales de duples. Las medias no reales
+  // se ofrecen sólo después de Grande. No cambia la puntuación de la mesa.
+  function signals(hand,{grandeDone=false}={}){
+    const p=pairs(hand),n=sum(hand),result=[];
+    if(p.tier===3)result.push('duples');
+    else if(p.tier===2){
+      if(p.values[0]===12)result.push('medias-reyes');
+      else if(p.values[0]===1)result.push('medias-ases');
+      else if(grandeDone)result.push('medias');
+    }else if(p.tier===1){if(p.values[0]===12)result.push('reyes');else if(p.values[0]===1)result.push('ases');}
+    // Medias y pares de ases no admiten señas parciales de otras jugadas.
+    if((p.tier===2||p.tier===1)&&p.values[0]===1)return result;
+    if(n===31)result.push('31');else if(n>31)result.push('juego');
+    else if(n===30)result.push('30');else if(n===29&&p.tier<2)result.push('29');
+    if(!result.length&&p.tier<2&&n<29)result.push('ciego');
+    return result;
+  }
+  return {ids,sides,rank,sum,deck,shuffle,pairs,strength,compare,qualifies,order,winner,phases,canBet,intrinsic,signals};
 })();
 
 if(typeof module!=='undefined' && module.exports) module.exports=MusRules;
@@ -145,6 +162,68 @@ if(typeof document!=='undefined'){
     jugador2:{MUS:['Baraja, pórtate.','Cambio de armario.'],PASO:['Estoy haciendo cuentas.','El silencio cotiza.'],ENVIDO:['Dos y una sonrisa.','Que no se enfríe esto.'],QUIERO:['He venido a jugar.'],NO:['Mi abogado dice que no.'],ÓRDAGO:['¡Hoy se cena fuerte!']},
     jugador4:{MUS:['Estas no eran mi talla.','Otra vuelta, camarero.'],PASO:['Yo sólo venía a mirar.','Pausa dramática.'],ENVIDO:['Venga, que es domingo.','Un poquito de picante.'],QUIERO:['¿Quién dijo miedo?'],NO:['Tengo una cita con la prudencia.'],ÓRDAGO:['¡Que tiemble el tapete!']}
   };
+  const signalInfo={
+    reyes:{name:'Dos reyes',gesture:'Morder el labio',motion:'bite'},
+    ases:{name:'Dos ases',gesture:'Sacar la lengua',motion:'tongue'},
+    'medias-reyes':{name:'Medias de reyes',gesture:'Boca hacia un lado',motion:'side-mouth'},
+    'medias-ases':{name:'Medias de ases',gesture:'Lengua hacia un lado',motion:'side-tongue'},
+    medias:{name:'Medias',gesture:'Boca hacia un lado',motion:'side-mouth'},
+    duples:{name:'Duples',gesture:'Levantar las cejas',motion:'brows'},
+    '31':{name:'Treinta y una',gesture:'Guiñar un ojo',motion:'wink'},
+    juego:{name:'Juego',gesture:'Sacar los labios',motion:'kiss'},
+    '30':{name:'Treinta al punto',gesture:'Subir ambos hombros',motion:'shrug'},
+    '29':{name:'Veintinueve al punto',gesture:'Subir un hombro',motion:'one-shoulder'},
+    ciego:{name:'Ciego',gesture:'Cerrar los ojos',motion:'closed'}
+  };
+  function signalWindow(){return ['mus','declarations','opening','response','settling'].includes(state.stage)&&!(state.handNumber===1&&state.stage==='mus');}
+  function handSignals(id){return MusRules.signals(state.hands[id],{grandeDone:state.stage!=='mus'&&state.phaseIndex>0});}
+  function resetSignals(){state.signalRevision++;state.signalSeen={};state.partnerSent={};state.signalMotion={};state.signalIncoming=null;state.signalPending=null;state.signalReceipt='';$('signal-menu').hidden=true;$('btn-senas').setAttribute('aria-expanded','false');}
+  function signalGesture(id,key){
+    const rev=state.signalRevision;state.signalMotion[id]=key==='ack'?'nod':signalInfo[key].motion;
+    schedule(()=>{if(state.signalRevision!==rev)return;delete state.signalMotion[id];renderSignals();},1700);
+  }
+  function renderSignals(){
+    const usable=signalWindow();$('btn-senas').disabled=!usable;
+    if(!usable){$('signal-menu').hidden=true;$('btn-senas').setAttribute('aria-expanded','false');}
+    $('signal-receipt').textContent=state.signalReceipt;
+    const incoming=state.signalIncoming;
+    $('signal-inbox').textContent=incoming?'Socio: '+signalInfo[incoming].name:'';
+    $('btn-sena-vista').hidden=!incoming;
+    for(const id of MusRules.ids)$(id).dataset.signal=state.signalMotion[id]||'';
+    const box=$('signal-options');box.replaceChildren();
+    const list=usable?handSignals('jugador1'):[];
+    if(!list.length){const note=document.createElement('p');note.textContent=usable?'Sin seña disponible en este momento.':'Las señas se activan después de cortar el primer mus.';box.append(note);}
+    for(const key of list){const button=document.createElement('button');button.type='button';button.className='signal-choice';
+      button.textContent=signalInfo[key].name+' · '+signalInfo[key].gesture+(state.signalSeen[key]?' · Vista':'');
+      button.disabled=!!state.signalPending||!!state.signalSeen[key];button.addEventListener('click',()=>sendSignal(key));box.append(button);}
+  }
+  function sendSignal(key){
+    if(!signalWindow()||state.signalPending||state.signalSeen[key]||!handSignals('jugador1').includes(key))return;
+    const rev=state.signalRevision;state.signalPending=key;state.signalReceipt='Enviando: '+signalInfo[key].name;
+    $('signal-menu').hidden=true;$('btn-senas').setAttribute('aria-expanded','false');signalGesture('jugador1',key);renderSignals();
+    schedule(()=>{if(state.signalRevision!==rev)return;
+      state.signalSeen[key]=true;state.signalPending=null;state.signalReceipt='Socio la ha visto: '+signalInfo[key].name;
+      signalGesture('jugador3','ack');renderSignals();
+    },800);
+  }
+  function maybePartnerSignal(){
+    if(!signalWindow()||state.signalIncoming)return;
+    const available=handSignals('jugador3').filter(key=>!state.partnerSent[key]);
+    const preference=phase()==='GRANDE'?['medias-reyes','reyes','duples','31','juego','ases','ciego']:
+      phase()==='CHICA'?['medias-ases','ases','duples','31','juego','ciego']:
+      phase()==='PARES'?['duples','medias-reyes','medias-ases','medias','31','ciego']:
+      ['31','juego','30','29','duples','medias-reyes','medias-ases','medias','reyes','ases','ciego'];
+    const key=preference.find(k=>available.includes(k));if(!key)return;
+    state.partnerSent[key]=true;state.signalIncoming=key;signalGesture('jugador3',key);renderSignals();
+  }
+  function signSupports(f){
+    const seen=state.signalSeen;
+    if(f==='GRANDE')return !!(seen.reyes||seen['medias-reyes']);
+    if(f==='CHICA')return !!(seen.ases||seen['medias-ases']);
+    if(f==='PARES')return !!(seen.duples||seen.medias||seen['medias-reyes']||seen['medias-ases']);
+    if(f==='JUEGO')return !!(seen['31']||seen.juego);
+    return !!(seen['30']||seen['29']);
+  }
   const visualAnimations=new Set();
   function clearVisuals(){for(const a of visualAnimations)a.cancel();visualAnimations.clear();$('flight-layer').replaceChildren();$('discard-zone').hidden=true;}
   function reducedMotion(){return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;}
@@ -163,7 +242,7 @@ if(typeof document!=='undefined'){
     visualAnimations.add(animation);animation.onfinish=()=>{visualAnimations.delete(animation);ghost.remove();};
   }
   function discardRound(selections){
-    state.stage='discarding';state.calls={};state.discardCounts={};state.discardSelections=selections;panel('none');
+    resetSignals();state.stage='discarding';state.calls={};state.discardCounts={};state.discardSelections=selections;panel('none');
     const turnOrder=order();let playerIndex=0;
     function nextDiscard(){
       if(playerIndex===4){
@@ -191,7 +270,7 @@ if(typeof document!=='undefined'){
   const state={scores:{nosotros:0,ellos:0},handNumber:0,mano:0,hands:{},deck:[],discard:[],selected:new Set(),musTurns:0,
     stage:'mus',phases:[],phaseIndex:0,bets:{},pending:null,revealed:false,note:'',result:[],
     cutter:null,actor:null,lastActor:null,lastAction:'',calls:{},actionLog:[],flowToken:0,cursor:0,
-    musCalls:{},discardCounts:{},banter:{},declarations:[],opening:[],response:[],passedSides:new Set(),offer:null};
+    musCalls:{},discardCounts:{},banter:{},signalRevision:0,signalSeen:{},partnerSent:{},signalMotion:{},signalIncoming:null,signalPending:null,signalReceipt:'',declarations:[],opening:[],response:[],passedSides:new Set(),offer:null};
   function announce(message){$('anuncio').textContent=message;}
   function status(title,detail,stage){$('mensaje').textContent=title;$('ayuda').textContent=detail;$('etapa').textContent=stage;announce(title+' '+detail);}
   function panel(id){for(const name of ['mus','apuestas','respuesta','resolver','siguiente','fin'])$('panel-'+name).hidden=name!==id;}
@@ -210,6 +289,7 @@ if(typeof document!=='undefined'){
   function order(){return MusRules.order(state.mano);}
   function enabled(id,f){return MusRules.qualifies(state.hands[id],f);}
   function aiStrong(id,f){
+    if(id==='jugador3'&&signSupports(f))return true;
     const h=state.hands[id],r=h.map(MusRules.rank);
     if(f==='GRANDE')return r.filter(v=>v===12).length>=2;
     if(f==='CHICA')return r.filter(v=>v===1).length>=2;
@@ -232,7 +312,7 @@ if(typeof document!=='undefined'){
   function pips(card){return pipPositions[card.numero].map(([x,y])=>'<span class="pip" style="left:'+x+'%;top:'+y+'%">'+imageTag(suitAsset[card.palo],'suit-image','')+'</span>').join('');}
   function cardNode(card,back=false){
     const el=document.createElement('div');
-    el.className='card'+(back?' back':' '+suitColor[card.palo]+' number-'+card.numero);
+    el.className='card'+(back?' back':' '+suitColor[card.palo]+' number-'+card.numero+' suit-'+card.palo.toLowerCase());
     if(back){
       el.setAttribute('aria-label','Carta boca abajo');
       return el;
@@ -336,7 +416,7 @@ if(typeof document!=='undefined'){
         if(id==='jugador1'){
           const b=document.createElement('button');
           b.type='button';
-          b.className='card '+suitColor[c.palo]+' number-'+c.numero+(state.selected.has(i)?' selected':'');
+          b.className='card '+suitColor[c.palo]+' number-'+c.numero+' suit-'+c.palo.toLowerCase()+(state.selected.has(i)?' selected':'');
           b.disabled=state.stage!=='mus'||state.actor!=='jugador1';
           b.setAttribute('aria-pressed',String(state.selected.has(i)));
           b.setAttribute('aria-label',(figureName[c.numero]||c.numero)+' de '+c.palo+(state.selected.has(i)?', seleccionada':''));
@@ -357,11 +437,11 @@ if(typeof document!=='undefined'){
     if(state.stage==='discarding')for(const id of order())if(state.discardCounts[id]!==undefined)for(const i of state.discardSelections[id])$('cartas-j'+id.at(-1)).children[i].style.visibility='hidden';
     const musBtn=$('btn-mus');
     if(musBtn)musBtn.disabled=state.stage!=='mus'||state.actor!=='jugador1'||state.selected.size===0;
-    renderHandStrength();
+    renderHandStrength();renderSignals();
   }
 
   function freshHand(){
-    state.flowToken++;clearVisuals();state.discardCounts={};state.banter={};state.handNumber++;state.mano=(state.handNumber-1)%4;
+    state.flowToken++;clearVisuals();resetSignals();state.discardCounts={};state.banter={};state.handNumber++;state.mano=(state.handNumber-1)%4;
     state.deck=MusRules.shuffle(MusRules.deck());state.discard=[];
     state.hands=Object.fromEntries(MusRules.ids.map(id=>[id,[]]));
     for(let i=0;i<4;i++)for(const id of order())state.hands[id].push(state.deck.pop());
@@ -388,6 +468,7 @@ if(typeof document!=='undefined'){
   }
 
   function step(){
+    maybePartnerSignal();
     if(state.stage==='mus')return musStep();
     if(state.stage==='declarations')return declarationStep();
     if(state.stage==='opening')return openingStep();
@@ -407,7 +488,7 @@ if(typeof document!=='undefined'){
     panel('none');status('Habla '+label[id]+'.','La mesa sigue a derechas.','MUS');render();
     schedule(()=>{
       if(state.stage!=='mus')return;
-      const h=state.hands[id];const cut=MusRules.sum(h)===31||MusRules.pairs(h).tier>=2||aiDiscard(h).length===0;
+      const h=state.hands[id];const cut=(id==='jugador3'&&(state.signalSeen['31']||state.signalSeen.duples))||MusRules.sum(h)===31||MusRules.pairs(h).tier>=2||aiDiscard(h).length===0;
       musAction(id,cut);
     });
   }
@@ -539,6 +620,9 @@ if(typeof document!=='undefined'){
 
   function newGame(){state.scores={nosotros:0,ellos:0};state.handNumber=0;freshHand();}
 
+  $('btn-senas').addEventListener('click',()=>{if(!signalWindow())return;const menu=$('signal-menu');menu.hidden=!menu.hidden;$('btn-senas').setAttribute('aria-expanded',String(!menu.hidden));renderSignals();});
+  $('btn-sena-vista').addEventListener('click',()=>{state.signalIncoming=null;renderSignals();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){$('signal-menu').hidden=true;$('btn-senas').setAttribute('aria-expanded','false');}});
   document.addEventListener('pointerdown',unlockAudio);document.addEventListener('keydown',unlockAudio);
   $('btn-sonido').addEventListener('click',()=>{soundEnabled=!soundEnabled;try{localStorage.setItem(SOUND_KEY,soundEnabled?'on':'off');}catch(e){}renderSound();if(soundEnabled){unlockAudio();playSound('accept');}});
   renderSound();
