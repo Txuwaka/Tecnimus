@@ -106,17 +106,84 @@ if(typeof document!=='undefined'){
   const figureAsset={10:'assets/sota.png',11:'assets/caballo.png',12:'assets/rey.jpg'};
   const AI_DELAY=1100;
   const TIPS_KEY='tecnimus-consejos';
-  
-  // --- NUEVO: SISTEMA DE SONIDOS ---
-  // Estos audios se cargarán cuando existan en la carpeta assets. Por ahora prevenimos errores con play = () => {}
-  const fxDescarte = new Audio('assets/descarte.mp3');
-  const fxQueja = new Audio('assets/queja.mp3');
-  fxDescarte.play = fxQueja.play = () => {}; 
-  
   let tipsEnabled=false;
   try{tipsEnabled=localStorage.getItem(TIPS_KEY)==='on';}catch(e){}
   function renderTips(){document.body.classList.toggle('tips-on',tipsEnabled);$('btn-consejos').textContent='Consejos '+(tipsEnabled?'ON':'OFF');$('btn-consejos').setAttribute('aria-pressed',String(tipsEnabled));}
 
+
+  const SOUND_KEY='tecnimus-sonido';
+  let soundEnabled=true,audioContext=null;
+  try{soundEnabled=localStorage.getItem(SOUND_KEY)!=='off';}catch(e){}
+  function renderSound(){ $('btn-sonido').textContent='Sonido '+(soundEnabled?'ON':'OFF');$('btn-sonido').setAttribute('aria-pressed',String(soundEnabled)); }
+  function unlockAudio(){
+    if(!soundEnabled)return;
+    try{const Audio=window.AudioContext||window.webkitAudioContext;if(Audio&&!audioContext)audioContext=new Audio();
+      if(audioContext?.state==='suspended')audioContext.resume().catch(()=>{});
+    }catch(e){}
+  }
+  function playSound(kind){
+    if(!soundEnabled||!audioContext||audioContext.state!=='running')return;
+    try{
+      const at=audioContext.currentTime;
+      if(kind==='cards'){
+        const frames=Math.floor(audioContext.sampleRate*.12),buffer=audioContext.createBuffer(1,frames,audioContext.sampleRate),data=buffer.getChannelData(0);
+        for(let i=0;i<frames;i++)data[i]=(Math.random()*2-1)*(1-i/frames);
+        const src=audioContext.createBufferSource(),filter=audioContext.createBiquadFilter(),gain=audioContext.createGain();
+        src.buffer=buffer;filter.type='highpass';filter.frequency.value=1400;gain.gain.value=.065;
+        src.connect(filter);filter.connect(gain);gain.connect(audioContext.destination);src.start(at);return;
+      }
+      const notes=kind==='ordago'?[330,440,660]:kind==='bet'?[440,587]:kind==='accept'?[523,659]:kind==='win'?[523,659,784]:[kind==='cut'?185:290];
+      notes.forEach((freq,i)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain();
+        osc.type='sine';osc.frequency.value=freq;gain.gain.setValueAtTime(.0001,at+i*.1);
+        gain.gain.exponentialRampToValueAtTime(.035,at+i*.1+.015);gain.gain.exponentialRampToValueAtTime(.0001,at+i*.1+.16);
+        osc.connect(gain);gain.connect(audioContext.destination);osc.start(at+i*.1);osc.stop(at+i*.1+.18);});
+    }catch(e){}
+  }
+  const jokes={
+    jugador1:{MUS:['A ver si mejora la cosa.','Estas venían torcidas.'],PASO:['Me hago el interesante.','Yo aquí, tranquilito.'],ENVIDO:['Dos. Sin despeinarme.','Esto tiene buena pinta.'],QUIERO:['Venga, que me lío.'],NO:['Hoy no me meto.'],ÓRDAGO:['¡Se acabó el aperitivo!']},
+    jugador3:{MUS:['Una mano de pintura.','Socio, vamos afinando.'],PASO:['Estoy cocinando algo.','Que hablen los valientes.'],ENVIDO:['Socio, confía.','Traigo merienda.'],QUIERO:['¡Yo te cubro, socio!'],NO:['Mejor vivir otro día.'],ÓRDAGO:['¡Sujétame el café!']},
+    jugador2:{MUS:['Baraja, pórtate.','Cambio de armario.'],PASO:['Estoy haciendo cuentas.','El silencio cotiza.'],ENVIDO:['Dos y una sonrisa.','Que no se enfríe esto.'],QUIERO:['He venido a jugar.'],NO:['Mi abogado dice que no.'],ÓRDAGO:['¡Hoy se cena fuerte!']},
+    jugador4:{MUS:['Estas no eran mi talla.','Otra vuelta, camarero.'],PASO:['Yo sólo venía a mirar.','Pausa dramática.'],ENVIDO:['Venga, que es domingo.','Un poquito de picante.'],QUIERO:['¿Quién dijo miedo?'],NO:['Tengo una cita con la prudencia.'],ÓRDAGO:['¡Que tiemble el tapete!']}
+  };
+  const visualAnimations=new Set();
+  function clearVisuals(){for(const a of visualAnimations)a.cancel();visualAnimations.clear();$('flight-layer').replaceChildren();$('discard-zone').hidden=true;}
+  function reducedMotion(){return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;}
+  function flyCard(id,index,outgoing){
+    const source=$('cartas-j'+id.at(-1)).children[index],felt=$('tapete');
+    if(!source?.getBoundingClientRect||!felt.getBoundingClientRect)return;
+    const r=source.getBoundingClientRect(),table=felt.getBoundingClientRect();
+    const ghost=cardNode(state.hands[id][index],true);ghost.classList.add('flying-card');
+    ghost.style.width=r.width+'px';ghost.style.height=r.height+'px';
+    const x=r.left-table.left,y=r.top-table.top,cx=table.width*.5-r.width/2,cy=table.height*.64-r.height/2;
+    ghost.style.left=(outgoing?x:cx)+'px';ghost.style.top=(outgoing?y:cy)+'px';$('flight-layer').append(ghost);
+    if(outgoing)source.style.visibility='hidden';
+    if(!ghost.animate||reducedMotion()){ghost.remove();return;}
+    const dx=outgoing?cx-x:x-cx,dy=outgoing?cy-y:y-cy;
+    const animation=ghost.animate([{transform:'translate(0,0) rotate(0deg)',opacity:1},{transform:'translate('+dx+'px,'+dy+'px) rotate('+(outgoing?12:-3)+'deg)',opacity:outgoing?.85:0}],{duration:480,delay:index*65,easing:'cubic-bezier(.22,.7,.35,1)',fill:'forwards'});
+    visualAnimations.add(animation);animation.onfinish=()=>{visualAnimations.delete(animation);ghost.remove();};
+  }
+  function discardRound(selections){
+    state.stage='discarding';state.calls={};state.discardCounts={};state.discardSelections=selections;panel('none');
+    const turnOrder=order();let playerIndex=0;
+    function nextDiscard(){
+      if(playerIndex===4){
+        // Las cartas salen de las cuatro manos antes de reponer; evita duplicados al reciclar la baraja.
+        for(const id of turnOrder)for(const i of selections[id])state.discard.push(state.hands[id][i]);
+        for(const id of turnOrder)for(const i of selections[id])state.hands[id][i]=draw();
+        state.selected.clear();state.musTurns++;state.musCalls={};state.cursor=0;state.actor=null;state.stage='dealing';
+        $('cuenta-descartes').textContent='(0)';render();
+        for(const id of turnOrder)for(const i of selections[id])flyCard(id,i,false);
+        playSound('cards');status('Cartas nuevas. ¡Otra vuelta!','La mano vuelve a hablar primero.','REPARTO');
+        schedule(()=>{state.stage='mus';$('discard-zone').hidden=true;step();},1200);return;
+      }
+      const id=turnOrder[playerIndex++],count=selections[id].length;
+      state.discardCounts[id]=count;setActor(id,'DESCARTO '+count);status(label[id]+': '+count+' al montón.','Descarte en orden desde la mano.','DESCARTES');render();
+      $('discard-zone').hidden=false;$('discard-caption').textContent='AL MONTÓN · '+Object.values(state.discardCounts).reduce((a,b)=>a+b,0);
+      for(const i of selections[id])flyCard(id,i,true);
+      if(count)playSound('cards');schedule(nextDiscard,reducedMotion()?650:1000);
+    }
+    nextDiscard();
+  }
 
   // Estados: mus -> declarations -> opening -> response -> ready -> summary/finished.
   // Un cursor recorre el orden desde la mano. Sólo response restringe el turno
@@ -124,7 +191,7 @@ if(typeof document!=='undefined'){
   const state={scores:{nosotros:0,ellos:0},handNumber:0,mano:0,hands:{},deck:[],discard:[],selected:new Set(),musTurns:0,
     stage:'mus',phases:[],phaseIndex:0,bets:{},pending:null,revealed:false,note:'',result:[],
     cutter:null,actor:null,lastActor:null,lastAction:'',calls:{},actionLog:[],flowToken:0,cursor:0,
-    musCalls:{},declarations:[],opening:[],response:[],passedSides:new Set(),offer:null};
+    musCalls:{},discardCounts:{},banter:{},declarations:[],opening:[],response:[],passedSides:new Set(),offer:null};
   function announce(message){$('anuncio').textContent=message;}
   function status(title,detail,stage){$('mensaje').textContent=title;$('ayuda').textContent=detail;$('etapa').textContent=stage;announce(title+' '+detail);}
   function panel(id){for(const name of ['mus','apuestas','respuesta','resolver','siguiente','fin'])$('panel-'+name).hidden=name!==id;}
@@ -134,7 +201,10 @@ if(typeof document!=='undefined'){
   function setActor(id,action=''){
     state.actor=id||null;
     if(id&&action){state.lastActor=id;state.lastAction=action;state.calls[id]=action;
-      state.actionLog.push(label[id]+': '+action);if(state.actionLog.length>5)state.actionLog.shift();}
+      state.actionLog.push(label[id]+': '+action);if(state.actionLog.length>5)state.actionLog.shift();
+      const key=action.startsWith('NO ')?'NO':action.startsWith('REENVIDO')?'ENVIDO':action.split(' ')[0];
+      const lines=jokes[id]?.[key];state.banter[id]=lines?lines[(state.handNumber+state.actionLog.length)%lines.length]:'';
+      playSound(key==='ÓRDAGO'?'ordago':key==='ENVIDO'?'bet':key==='QUIERO'?'accept':key==='CORTO'?'cut':'pass');}
   }
   function schedule(fn,delay=AI_DELAY){const token=state.flowToken;window.setTimeout(()=>{if(state.flowToken===token)fn();},delay);}
   function order(){return MusRules.order(state.mano);}
@@ -153,20 +223,13 @@ if(typeof document!=='undefined'){
 
   // Posiciones propias de cada carta, en porcentaje del área interior.
   const pipPositions={
-    1:[[50,50]],2:[[50,15],[50,85]],3:[[50,14],[50,50],[50,86]],
-    4:[[22,16],[78,16],[22,84],[78,84]],
-    5:[[22,16],[78,16],[50,50],[22,84],[78,84]],
-    6:[[22,14],[78,14],[22,50],[78,50],[22,86],[78,86]],
-    7:[[22,10],[78,10],[22,36],[78,36],[50,60],[22,88],[78,88]]
+    1:[[50,50]],2:[[50,22],[50,78]],3:[[50,18],[50,50],[50,82]],
+    4:[[22,18],[78,18],[22,82],[78,82]],
+    5:[[22,18],[78,18],[50,50],[22,82],[78,82]],
+    6:[[22,18],[78,18],[22,50],[78,50],[22,82],[78,82]],
+    7:[[22,18],[78,18],[22,40],[78,40],[50,62],[22,82],[78,82]]
   };
-
-  // --- NUEVO: ESPADAS DESTACADAS AL RENDERIZAR PIPAS ---
-  function pips(card){
-    const esEspadaAlta = (card.palo === 'Espadas' && card.numero >= 3) ? ' espada-destacada' : '';
-    return pipPositions[card.numero].map(([x,y])=>'<span class="pip'+esEspadaAlta+'" style="left:'+x+'%;top:'+y+'%">'+imageTag(suitAsset[card.palo],'suit-image','')+'</span>').join('');
-  }
-
-  // --- NUEVO: ESPADAS DESTACADAS AL RENDERIZAR FIGURAS ---
+  function pips(card){return pipPositions[card.numero].map(([x,y])=>'<span class="pip" style="left:'+x+'%;top:'+y+'%">'+imageTag(suitAsset[card.palo],'suit-image','')+'</span>').join('');}
   function cardNode(card,back=false){
     const el=document.createElement('div');
     el.className='card'+(back?' back':' '+suitColor[card.palo]+' number-'+card.numero);
@@ -179,14 +242,14 @@ if(typeof document!=='undefined'){
     if(figureName[card.numero]){
       el.classList.add('figure','figure-'+card.numero);
       const art=imageTag(figureAsset[card.numero],'figure-image','');
-      const esEspadaAlta = (card.palo === 'Espadas') ? ' espada-destacada' : '';
-      el.innerHTML='<span class="corner">'+n+'</span><span class="figure-art">'+art+'</span><span class="figure-suit'+esEspadaAlta+'" aria-hidden="true">'+suit+'</span><span class="figure-caption">'+figureName[card.numero]+' · '+card.palo+'</span><span class="corner bottom">'+n+'</span>';
+      el.innerHTML='<span class="corner">'+n+'</span><span class="figure-art">'+art+'</span><span class="figure-suit" aria-hidden="true">'+suit+'</span><span class="figure-caption">'+figureName[card.numero]+' · '+card.palo+'</span><span class="corner bottom">'+n+'</span>';
     }else{
       el.innerHTML='<span class="corner">'+n+'</span><span class="pip-field" aria-hidden="true">'+pips(card)+'</span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';
     }
     el.setAttribute('aria-label',(figureName[card.numero]||card.numero)+' de '+card.palo);
     return el;
   }
+
 
   function rankName(v){
     if(v===12)return 'rey';
@@ -236,11 +299,11 @@ if(typeof document!=='undefined'){
     $('pts-nosotros').textContent=state.scores.nosotros;
     $('pts-ellos').textContent=state.scores.ellos;
     $('mano-indicador').textContent='MANO '+state.handNumber+' · '+label[handId()].toUpperCase();
-    $('fase-indicador').textContent=state.stage==='mus'?'MUS':state.stage==='finished'?'PARTIDA FINALIZADA':phaseName[phase()]?.toUpperCase()||'RESULTADOS';
+    $('fase-indicador').textContent=['discarding','dealing'].includes(state.stage)?'DESCARTES':state.stage==='mus'?'MUS':state.stage==='finished'?'PARTIDA FINALIZADA':phaseName[phase()]?.toUpperCase()||'RESULTADOS';
     $('baraja-indicador').textContent='40 CARTAS · JUEGO A DERECHAS';
 
     const phaseTitle=phaseName[phase()]||'Lances';
-    $('centro-titulo').textContent=state.stage==='mus'?'Mus':state.stage==='finished'?'Fin de partida':state.stage==='summary'?'Cartas vistas':phaseTitle;
+    $('centro-titulo').textContent=['discarding','dealing'].includes(state.stage)?'Al montón':state.stage==='mus'?'Mus':state.stage==='finished'?'Fin de partida':state.stage==='summary'?'Cartas vistas':phaseTitle;
     if(state.stage==='mus')$('centro-subtitulo').textContent='Mano: '+label[handId()]+' · a derechas';
     else if(state.stage==='summary')$('centro-subtitulo').textContent='Siguiente mano: '+label[MusRules.ids[(state.mano+1)%4]];
     else if(state.stage==='finished')$('centro-subtitulo').textContent='40 piedras';
@@ -258,12 +321,14 @@ if(typeof document!=='undefined'){
       player.classList.toggle('is-cutter',isCutter);
       player.classList.toggle('is-last',isLast);
       player.dataset.call=state.calls[id]||'';
+      $('broma-j'+id.at(-1)).textContent=state.banter[id]||'';
+      const badge=$('descarte-j'+id.at(-1)),count=state.discardCounts[id];badge.hidden=count===undefined;badge.textContent=count===undefined?'':count+' descartada'+(count===1?'':'s');
 
       const tags=[];
       if(isHand)tags.push('MANO');
       if(isCutter)tags.push('CORTA');
       if(isActive)tags.push('TURNO');
-      if(isLast)tags.push(state.calls[id]);
+      // La acción ya está en el bocadillo; el nombre conserva sólo mano y turno.
       $('turno-j'+id.at(-1)).textContent=tags.length?'· '+tags.join(' · '):'';
 
       const box=$('cartas-j'+id.at(-1));box.replaceChildren();
@@ -289,13 +354,14 @@ if(typeof document!=='undefined'){
         }
       });
     });
+    if(state.stage==='discarding')for(const id of order())if(state.discardCounts[id]!==undefined)for(const i of state.discardSelections[id])$('cartas-j'+id.at(-1)).children[i].style.visibility='hidden';
     const musBtn=$('btn-mus');
     if(musBtn)musBtn.disabled=state.stage!=='mus'||state.actor!=='jugador1'||state.selected.size===0;
     renderHandStrength();
   }
 
   function freshHand(){
-    state.flowToken++;state.handNumber++;state.mano=(state.handNumber-1)%4;
+    state.flowToken++;clearVisuals();state.discardCounts={};state.banter={};state.handNumber++;state.mano=(state.handNumber-1)%4;
     state.deck=MusRules.shuffle(MusRules.deck());state.discard=[];
     state.hands=Object.fromEntries(MusRules.ids.map(id=>[id,[]]));
     for(let i=0;i<4;i++)for(const id of order())state.hands[id].push(state.deck.pop());
@@ -331,67 +397,10 @@ if(typeof document!=='undefined'){
     setActor(id,action);panel('none');status(label[id]+': '+action+'.',detail||'Sigue el turno a derechas.',phaseName[phase()]||'MUS');render();state.actor=null;
     schedule(step);
   }
-
-  // --- NUEVO: FISICAS Y ANIMACIÓN DE DESCARTES EN EL BUCLE DE MUS ---
   function musStep(){
     if(state.cursor===4){
-      const selections={};
-      for(const id of order()) selections[id] = id==='jugador1' ? [...state.selected] : aiDiscard(state.hands[id]);
-
-      let tiraron4 = false;
-      for(const id of order()) {
-        const cantidad = selections[id].length;
-        if (cantidad > 0) fxDescarte.play();
-        
-        const jugadorDiv = $(id);
-        const indicador = document.createElement('div');
-        indicador.className = 'indicador-descarte';
-        
-        if (cantidad === 4) {
-            indicador.innerText = "¡Al pozo! (-4)";
-            tiraron4 = true;
-        } else if (cantidad === 0) {
-            indicador.innerText = "¡Me sirvo!";
-            indicador.style.background = "#2e7d32";
-        } else {
-            indicador.innerText = `-${cantidad}`;
-        }
-        jugadorDiv.appendChild(indicador);
-        setTimeout(() => indicador.remove(), 1800);
-
-        selections[id].forEach(i => {
-            const cartaDOM = $(`cartas-j${id.at(-1)}`).children[i];
-            if (cartaDOM) {
-                let tx = (Math.random() - 0.5) * 60;
-                let ty = (Math.random() - 0.5) * 60;
-                if (id === 'jugador1') ty -= 160;
-                else if (id === 'jugador3') ty += 160;
-                else if (id === 'jugador2') tx += 180;
-                else if (id === 'jugador4') tx -= 180;
-
-                cartaDOM.style.setProperty('--tx', `${tx}px`);
-                cartaDOM.style.setProperty('--ty', `${ty}px`);
-                cartaDOM.style.setProperty('--rot', `${(Math.random() - 0.5) * 200}deg`);
-                cartaDOM.classList.add('descartando');
-            }
-        });
-      }
-
-      if (tiraron4) setTimeout(() => fxQueja.play(), 400);
-
-      // Esperar a que acabe la animación (500ms) para renovar el modelo de datos
-      setTimeout(() => {
-          for(const id of order())for(const i of selections[id])state.discard.push(state.hands[id][i]);
-          for(const id of order())for(const i of selections[id])state.hands[id][i]=draw();
-          
-          state.selected.clear();state.musTurns++;state.musCalls={};state.cursor=0;state.calls={};
-          $('cuenta-descartes').textContent='(0)';
-          status('Descarte completado · vuelta '+state.musTurns+'.','La mano vuelve a hablar primero.','MUS');
-          render();
-          schedule(step,1200);
-      }, 500); 
-
-      return;
+      const selections={};for(const id of order())selections[id]=id==='jugador1'?[...state.selected]:aiDiscard(state.hands[id]);
+      discardRound(selections);return;
     }
     const id=order()[state.cursor];setActor(id);render();
     if(id==='jugador1'){panel('mus');status('Te toca hablar de mus.','Selecciona al menos una carta para dar mus o corta.','TU TURNO');render();return;}
@@ -402,7 +411,6 @@ if(typeof document!=='undefined'){
       musAction(id,cut);
     });
   }
-
   function musAction(id,cut){
     if(state.stage!=='mus'||state.actor!==id)return;
     if(cut){state.cutter=id;state.calls={};setActor(id,'CORTO MUS');state.stage='declarations';state.phases=MusRules.phases(state.hands);state.phaseIndex=0;
@@ -488,7 +496,7 @@ if(typeof document!=='undefined'){
   function playerBet(ordago=false){if(state.stage==='opening'&&state.actor==='jugador1')openingAction('jugador1',ordago?'ordago':'bet');}
   function respond(accept){if(state.stage==='response'&&state.actor==='jugador1')responseAction('jugador1',accept?'accept':'decline');}
   function respondRaise(ordago=false){if(state.stage==='response'&&state.actor==='jugador1')responseAction('jugador1',ordago?'ordago':'raise');}
-  function closeGame(winner,message){state.stage='finished';state.revealed=true;state.actor=null;panel('fin');render();status((winner==='nosotros'?'¡Habéis ganado!':'Ganan los rivales.')+' '+message,'Partida terminada · '+state.scores.nosotros+' a '+state.scores.ellos+' piedras.','FIN DE PARTIDA');}
+  function closeGame(winner,message){playSound('win');state.stage='finished';state.revealed=true;state.actor=null;panel('fin');render();status((winner==='nosotros'?'¡Habéis ganado!':'Ganan los rivales.')+' '+message,'Partida terminada · '+state.scores.nosotros+' a '+state.scores.ellos+' piedras.','FIN DE PARTIDA');}
   function award(winner,points){state.scores[winner]+=points;return state.scores[winner]>=40;}
 
   function showResults(ordago=false){
@@ -531,15 +539,28 @@ if(typeof document!=='undefined'){
 
   function newGame(){state.scores={nosotros:0,ellos:0};state.handNumber=0;freshHand();}
 
+  document.addEventListener('pointerdown',unlockAudio);document.addEventListener('keydown',unlockAudio);
+  $('btn-sonido').addEventListener('click',()=>{soundEnabled=!soundEnabled;try{localStorage.setItem(SOUND_KEY,soundEnabled?'on':'off');}catch(e){}renderSound();if(soundEnabled){unlockAudio();playSound('accept');}});
+  renderSound();
   $('btn-consejos').addEventListener('click',()=>{tipsEnabled=!tipsEnabled;try{localStorage.setItem(TIPS_KEY,tipsEnabled?'on':'off');}catch(e){}renderTips();});
   renderTips();
   $('btn-mus').addEventListener('click',giveMus);
-  $('btn-cortar').addEventListener('click',()=>{     if(state.stage==='mus'&&state.actor==='jugador1'){       musAction('jugador1',true);     }   });$('btn-paso').addEventListener('click',playerPass);
-  $('btn-envido').addEventListener('click',()=>playerBet(false));$('btn-ordago').addEventListener('click',()=>playerBet(true));
-  $('btn-quiero').addEventListener('click',()=>respond(true));$('btn-no-quiero').addEventListener('click',()=>respond(false));
-  $('btn-envido-mas').addEventListener('click',()=>respondRaise(false));$('btn-ordago-respuesta').addEventListener('click',()=>respondRaise(true));
-  $('btn-resolver').addEventListener('click',()=>showResults(false));$('btn-siguiente').addEventListener('click',()=>{if(state.stage==='summary')freshHand();});
-  $('btn-nueva').addEventListener('click',newGame);$('btn-reiniciar').addEventListener('click',()=>{
+  $('btn-cortar').addEventListener('click',()=>{
+    if(state.stage==='mus'&&state.actor==='jugador1'){
+      musAction('jugador1',true);
+    }
+  });
+  $('btn-paso').addEventListener('click',playerPass);
+  $('btn-envido').addEventListener('click',()=>playerBet(false));
+  $('btn-ordago').addEventListener('click',()=>playerBet(true));
+  $('btn-quiero').addEventListener('click',()=>respond(true));
+  $('btn-no-quiero').addEventListener('click',()=>respond(false));
+  $('btn-envido-mas').addEventListener('click',()=>respondRaise(false));
+  $('btn-ordago-respuesta').addEventListener('click',()=>respondRaise(true));
+  $('btn-resolver').addEventListener('click',()=>showResults(false));
+  $('btn-siguiente').addEventListener('click',()=>{if(state.stage==='summary')freshHand();});
+  $('btn-nueva').addEventListener('click',newGame);
+  $('btn-reiniciar').addEventListener('click',()=>{
     if(state.handNumber===1&&state.stage==='mus'&&state.scores.nosotros===0&&state.scores.ellos===0){newGame();return;}
     if(window.confirm('¿Empezar una partida nueva? Se perderá el marcador actual.'))newGame();
   });

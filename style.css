@@ -158,54 +158,63 @@ body.tips-on .hand-strength{display:flex}
 .mini .card.number-6 .pip,.mini .card.number-7 .pip{width:10px;height:10px}
 @media(max-width:650px){.human .card.number-6 .pip,.human .card.number-7 .pip{width:clamp(13px,4.2vw,18px);height:clamp(13px,4.2vw,18px)}.mini .card.number-6 .pip,.mini .card.number-7 .pip{width:8px;height:8px}}
 
-/* ========================================================================= */
-/* ==================== EFECTOS DE TECNIMUS  ============================= */
-/* ========================================================================= */
+/* Beta 2 · cartas bien contenidas. Los dibujos respetan ambos ejes. */
+.card .pip-field{inset:18px 9px 18px;overflow:hidden}
+.card .pip,.card.number-6 .pip,.card.number-7 .pip{width:18px;height:18px;min-width:0;min-height:0}
+.card.number-1 .pip{width:32px;height:32px}
+.card.number-2 .pip{width:22px;height:22px}
+.card .pip .suit-image{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;filter:drop-shadow(0 1px 1px #3a2b1c22)}
+.mini .card .pip-field{inset:11px 4px 9px}
+.mini .card .pip,.mini .card.number-6 .pip,.mini .card.number-7 .pip{width:9px;height:9px}
+.mini .card.number-1 .pip{width:18px;height:18px}
+.mini .card.number-2 .pip{width:11px;height:11px}
 
-/* 1. Espadas "salientes" para 3s y figuras */
-@keyframes espada-epica {
-  0% { transform: scale(1) translateY(0); }
-  50% { transform: scale(1.6) translateY(-8px) rotate(-10deg); filter: drop-shadow(2px 4px 5px rgba(0,0,0,0.6)); }
-  100% { transform: scale(1.3) translateY(-4px); }
+/* Un poco de taberna: madera, fieltro y caras dibujadas con CSS. */
+.table-section{background:linear-gradient(145deg,#29473b,#18372e);border-color:#9b8451}
+.table-wrap{border-color:#895736;box-shadow:inset 0 0 0 3px #dab96e,0 6px 0 #54331f,0 15px 25px #07151266}
+.table-felt{background:radial-gradient(circle at 30% 20%,#ffffff0a 0 1px,transparent 2px) 0 0/6px 6px,radial-gradient(ellipse at center,#357958,#24664c 55%,#174b3c)}
+.table-center{gap:5px;padding:10px 12px;border:1px solid #ddc5874d;border-radius:17px;background:#143b2e80;backdrop-filter:blur(2px)}
+.table-center span:first-child{color:#ffe3a0}
+.brand-icon{background:#d3ad64;color:#234338;box-shadow:0 3px 0 #8a6436}
+.player .player-name{background:#173a2cd9;border:1px solid #dfc68b55;box-shadow:0 3px 0 #0c2a20}
+.player .avatar{position:relative;width:31px;height:31px;font-size:0;background:linear-gradient(160deg,#ffdfab,#d89f65);border:2px solid #795332;overflow:hidden}
+.player .avatar::before{content:'';position:absolute;left:7px;top:9px;width:3px;height:4px;background:#3b352e;border-radius:50%;box-shadow:9px 0 #3b352e}
+.player .avatar::after{content:'';position:absolute;left:9px;top:16px;width:10px;height:6px;border-bottom:2px solid #67402d;border-radius:0 0 70% 70%}
+.partner .avatar{background:linear-gradient(160deg,#e7eab6,#b7bf70);transform:rotate(-7deg)}
+.partner .avatar::before{border:1px solid #3b352e;background:transparent;width:7px;height:7px;left:3px;top:7px;box-shadow:11px 0 0 -1px #d6daa0,11px 0 0 0 #3b352e}
+.rival-left .avatar{transform:rotate(6deg);background:linear-gradient(160deg,#eed4c3,#ce9674)}
+.rival-left .avatar::after{width:10px;height:3px;border-radius:40%;transform:rotate(-12deg)}
+.rival-right .avatar{background:linear-gradient(160deg,#f0bfaa,#ce876b)}
+.rival-right .avatar::after{background:#fff6e4;border:1px solid #67402d;height:6px}
+.human .avatar{background:linear-gradient(160deg,#fbe08e,#dcad49)}
+.player.is-active .player-name{background:#f5d789;border-color:#fff1c6;box-shadow:0 3px 0 #94743b,0 0 18px #f1d39055}
+.player.is-active .avatar{animation:face-bob .65s ease-in-out 2}
+.player[data-call]:not([data-call=""])::after{border-radius:12px 12px 12px 2px;font-size:10px;padding:6px 9px;background:#fff0c3;border:2px solid #745b31;box-shadow:2px 3px 0 #17362d77;top:-30px}
+.banter{display:block;font-size:9px;line-height:1.25;color:#fff0c5;text-shadow:0 1px 3px #07291b;font-style:italic;max-width:180px;margin:4px auto 0;white-space:normal}
+.banter:empty{display:none}
+.discard-count{position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:3px;white-space:nowrap;font-size:9px;line-height:1.2;border-radius:6px;background:#ffe1a1;color:#34442d;border:1px solid #a88347;padding:2px 5px;font-weight:700}
+.discard-count[hidden],.discard-zone[hidden]{display:none}
+.button{border-bottom:3px solid #24433844;box-shadow:0 2px 0 #1c302022}
+.dramatic{background:linear-gradient(#92545c,#67353e);border-bottom-color:#472330}
+.flight-layer{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:hidden;border-radius:inherit}
+.flying-card{position:absolute;margin:0!important;pointer-events:none}
+.discard-zone{position:absolute;z-index:6;left:50%;top:64%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:7px;color:#ffe6a7;font-weight:800;font-size:9px;white-space:nowrap;pointer-events:none}
+.discard-stack{display:block;width:27px;height:37px;background:repeating-linear-gradient(45deg,#254f59 0 4px,#48717a 4px 6px);border:2px solid #fff0cb;border-radius:4px;transform:rotate(12deg);box-shadow:-3px 2px 0 #ecdcb7,-5px 4px 0 #825e40}
+.human{bottom:28px}
+@keyframes face-bob{50%{transform:rotate(-8deg) translateY(-2px)}}
+@media(max-width:650px){
+ .table-center{padding:5px 7px;border-radius:12px;max-width:34%}.table-center .turn-feed{display:none}
+ .player .avatar{width:24px;height:24px;border-width:1px}.player .avatar::before{left:5px;top:7px;box-shadow:8px 0 #3b352e}.player .avatar::after{left:7px;top:13px;width:9px;height:5px}
+ .partner .avatar::before{left:2px;top:5px;width:6px;height:6px;box-shadow:10px 0 0 -1px #d6daa0,10px 0 0 0 #3b352e}
+ .rival-left .player-name .avatar,.rival-right .player-name .avatar{display:inline-grid}
+ .rival-left{left:7px}.rival-right{right:7px}.rival-left .player-name,.rival-right .player-name{font-size:9px}
+ .player-name small{font-size:8px;margin-left:1px}
+ .player[data-call]:not([data-call=""])::after{top:-24px;font-size:8px;padding:3px 5px}
+ .partner{top:24px}.human{bottom:25px}.banter{font-size:8px;max-width:125px;margin-top:3px}.discard-count{font-size:8px;padding:1px 4px}
+ .human .card .pip-field{inset:14px 7px 14px}.human .card .pip,.human .card.number-6 .pip,.human .card.number-7 .pip{width:12px;height:12px}
+ .human .card.number-1 .pip{width:26px;height:26px}.human .card.number-2 .pip{width:16px;height:16px}
+ .mini .card .pip-field{inset:9px 3px 7px}.mini .card .pip,.mini .card.number-6 .pip,.mini .card.number-7 .pip{width:6px;height:6px}.mini .card.number-1 .pip{width:13px;height:13px}.mini .card.number-2 .pip{width:7px;height:7px}
+ .discard-zone{font-size:8px}.discard-stack{width:20px;height:28px}.top-controls{gap:3px}.sound-toggle{padding:6px 5px}
 }
-.espada-destacada .suit-image {
-  animation: espada-epica 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
-
-/* 2. Animación de las cartas volando a la mesa */
-@keyframes tirar-al-centro {
-  0% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
-  100% { transform: translate(var(--tx, 0px), var(--ty, -150px)) scale(0.5) rotate(var(--rot, 45deg)); opacity: 0; }
-}
-.descartando {
-  animation: tirar-al-centro 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-  pointer-events: none;
-  z-index: 100;
-}
-
-/* 3. Indicadores de descarte flotantes (Bocadillos) */
-@keyframes numero-flotante {
-  0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
-  20% { opacity: 1; transform: translate(-50%, -25px) scale(1.2); }
-  80% { opacity: 1; transform: translate(-50%, -45px) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -55px); }
-}
-.indicador-descarte {
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 14px;
-  font-weight: 900;
-  color: #fff;
-  background: #d32f2f;
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 2px solid #fff;
-  text-shadow: 1px 1px 2px #000;
-  animation: numero-flotante 1.8s ease-out forwards;
-  z-index: 50;
-  white-space: nowrap;
-  pointer-events: none;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media(min-width:651px){.partner{top:40px}.top-controls{flex-wrap:wrap;justify-content:flex-end}.rival-left .banter,.rival-right .banter{max-width:160px}}
