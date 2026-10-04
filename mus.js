@@ -106,6 +106,13 @@ if(typeof document!=='undefined'){
   const figureAsset={10:'assets/sota.png',11:'assets/caballo.png',12:'assets/rey.jpg'};
   const AI_DELAY=1100;
   const TIPS_KEY='tecnimus-consejos';
+  
+  // --- NUEVO: SISTEMA DE SONIDOS ---
+  // Estos audios se cargarán cuando existan en la carpeta assets. Por ahora prevenimos errores con play = () => {}
+  const fxDescarte = new Audio('assets/descarte.mp3');
+  const fxQueja = new Audio('assets/queja.mp3');
+  fxDescarte.play = fxQueja.play = () => {}; 
+  
   let tipsEnabled=false;
   try{tipsEnabled=localStorage.getItem(TIPS_KEY)==='on';}catch(e){}
   function renderTips(){document.body.classList.toggle('tips-on',tipsEnabled);$('btn-consejos').textContent='Consejos '+(tipsEnabled?'ON':'OFF');$('btn-consejos').setAttribute('aria-pressed',String(tipsEnabled));}
@@ -152,7 +159,14 @@ if(typeof document!=='undefined'){
     6:[[22,14],[78,14],[22,50],[78,50],[22,86],[78,86]],
     7:[[22,10],[78,10],[22,36],[78,36],[50,60],[22,88],[78,88]]
   };
-  function pips(card){return pipPositions[card.numero].map(([x,y])=>'<span class="pip" style="left:'+x+'%;top:'+y+'%">'+imageTag(suitAsset[card.palo],'suit-image','')+'</span>').join('');}
+
+  // --- NUEVO: ESPADAS DESTACADAS AL RENDERIZAR PIPAS ---
+  function pips(card){
+    const esEspadaAlta = (card.palo === 'Espadas' && card.numero >= 3) ? ' espada-destacada' : '';
+    return pipPositions[card.numero].map(([x,y])=>'<span class="pip'+esEspadaAlta+'" style="left:'+x+'%;top:'+y+'%">'+imageTag(suitAsset[card.palo],'suit-image','')+'</span>').join('');
+  }
+
+  // --- NUEVO: ESPADAS DESTACADAS AL RENDERIZAR FIGURAS ---
   function cardNode(card,back=false){
     const el=document.createElement('div');
     el.className='card'+(back?' back':' '+suitColor[card.palo]+' number-'+card.numero);
@@ -165,14 +179,14 @@ if(typeof document!=='undefined'){
     if(figureName[card.numero]){
       el.classList.add('figure','figure-'+card.numero);
       const art=imageTag(figureAsset[card.numero],'figure-image','');
-      el.innerHTML='<span class="corner">'+n+'</span><span class="figure-art">'+art+'</span><span class="figure-suit" aria-hidden="true">'+suit+'</span><span class="figure-caption">'+figureName[card.numero]+' · '+card.palo+'</span><span class="corner bottom">'+n+'</span>';
+      const esEspadaAlta = (card.palo === 'Espadas') ? ' espada-destacada' : '';
+      el.innerHTML='<span class="corner">'+n+'</span><span class="figure-art">'+art+'</span><span class="figure-suit'+esEspadaAlta+'" aria-hidden="true">'+suit+'</span><span class="figure-caption">'+figureName[card.numero]+' · '+card.palo+'</span><span class="corner bottom">'+n+'</span>';
     }else{
       el.innerHTML='<span class="corner">'+n+'</span><span class="pip-field" aria-hidden="true">'+pips(card)+'</span><span class="card-name">'+card.palo+'</span><span class="corner bottom">'+n+'</span>';
     }
     el.setAttribute('aria-label',(figureName[card.numero]||card.numero)+' de '+card.palo);
     return el;
   }
-
 
   function rankName(v){
     if(v===12)return 'rey';
@@ -317,13 +331,67 @@ if(typeof document!=='undefined'){
     setActor(id,action);panel('none');status(label[id]+': '+action+'.',detail||'Sigue el turno a derechas.',phaseName[phase()]||'MUS');render();state.actor=null;
     schedule(step);
   }
+
+  // --- NUEVO: FISICAS Y ANIMACIÓN DE DESCARTES EN EL BUCLE DE MUS ---
   function musStep(){
     if(state.cursor===4){
-      const selections={};for(const id of order())selections[id]=id==='jugador1'?[...state.selected]:aiDiscard(state.hands[id]);
-      for(const id of order())for(const i of selections[id])state.discard.push(state.hands[id][i]);
-      for(const id of order())for(const i of selections[id])state.hands[id][i]=draw();
-      state.selected.clear();state.musTurns++;state.musCalls={};state.cursor=0;state.calls={};
-      $('cuenta-descartes').textContent='(0)';status('Descarte completado · vuelta '+state.musTurns+'.','La mano vuelve a hablar primero.','MUS');render();schedule(step,1200);return;
+      const selections={};
+      for(const id of order()) selections[id] = id==='jugador1' ? [...state.selected] : aiDiscard(state.hands[id]);
+
+      let tiraron4 = false;
+      for(const id of order()) {
+        const cantidad = selections[id].length;
+        if (cantidad > 0) fxDescarte.play();
+        
+        const jugadorDiv = $(id);
+        const indicador = document.createElement('div');
+        indicador.className = 'indicador-descarte';
+        
+        if (cantidad === 4) {
+            indicador.innerText = "¡Al pozo! (-4)";
+            tiraron4 = true;
+        } else if (cantidad === 0) {
+            indicador.innerText = "¡Me sirvo!";
+            indicador.style.background = "#2e7d32";
+        } else {
+            indicador.innerText = `-${cantidad}`;
+        }
+        jugadorDiv.appendChild(indicador);
+        setTimeout(() => indicador.remove(), 1800);
+
+        selections[id].forEach(i => {
+            const cartaDOM = $(`cartas-j${id.at(-1)}`).children[i];
+            if (cartaDOM) {
+                let tx = (Math.random() - 0.5) * 60;
+                let ty = (Math.random() - 0.5) * 60;
+                if (id === 'jugador1') ty -= 160;
+                else if (id === 'jugador3') ty += 160;
+                else if (id === 'jugador2') tx += 180;
+                else if (id === 'jugador4') tx -= 180;
+
+                cartaDOM.style.setProperty('--tx', `${tx}px`);
+                cartaDOM.style.setProperty('--ty', `${ty}px`);
+                cartaDOM.style.setProperty('--rot', `${(Math.random() - 0.5) * 200}deg`);
+                cartaDOM.classList.add('descartando');
+            }
+        });
+      }
+
+      if (tiraron4) setTimeout(() => fxQueja.play(), 400);
+
+      // Esperar a que acabe la animación (500ms) para renovar el modelo de datos
+      setTimeout(() => {
+          for(const id of order())for(const i of selections[id])state.discard.push(state.hands[id][i]);
+          for(const id of order())for(const i of selections[id])state.hands[id][i]=draw();
+          
+          state.selected.clear();state.musTurns++;state.musCalls={};state.cursor=0;state.calls={};
+          $('cuenta-descartes').textContent='(0)';
+          status('Descarte completado · vuelta '+state.musTurns+'.','La mano vuelve a hablar primero.','MUS');
+          render();
+          schedule(step,1200);
+      }, 500); 
+
+      return;
     }
     const id=order()[state.cursor];setActor(id);render();
     if(id==='jugador1'){panel('mus');status('Te toca hablar de mus.','Selecciona al menos una carta para dar mus o corta.','TU TURNO');render();return;}
@@ -334,6 +402,7 @@ if(typeof document!=='undefined'){
       musAction(id,cut);
     });
   }
+
   function musAction(id,cut){
     if(state.stage!=='mus'||state.actor!==id)return;
     if(cut){state.cutter=id;state.calls={};setActor(id,'CORTO MUS');state.stage='declarations';state.phases=MusRules.phases(state.hands);state.phaseIndex=0;
@@ -465,22 +534,12 @@ if(typeof document!=='undefined'){
   $('btn-consejos').addEventListener('click',()=>{tipsEnabled=!tipsEnabled;try{localStorage.setItem(TIPS_KEY,tipsEnabled?'on':'off');}catch(e){}renderTips();});
   renderTips();
   $('btn-mus').addEventListener('click',giveMus);
-  $('btn-cortar').addEventListener('click',()=>{
-    if(state.stage==='mus'&&state.actor==='jugador1'){
-      musAction('jugador1',true);
-    }
-  });
-  $('btn-paso').addEventListener('click',playerPass);
-  $('btn-envido').addEventListener('click',()=>playerBet(false));
-  $('btn-ordago').addEventListener('click',()=>playerBet(true));
-  $('btn-quiero').addEventListener('click',()=>respond(true));
-  $('btn-no-quiero').addEventListener('click',()=>respond(false));
-  $('btn-envido-mas').addEventListener('click',()=>respondRaise(false));
-  $('btn-ordago-respuesta').addEventListener('click',()=>respondRaise(true));
-  $('btn-resolver').addEventListener('click',()=>showResults(false));
-  $('btn-siguiente').addEventListener('click',()=>{if(state.stage==='summary')freshHand();});
-  $('btn-nueva').addEventListener('click',newGame);
-  $('btn-reiniciar').addEventListener('click',()=>{
+  $('btn-cortar').addEventListener('click',()=>{     if(state.stage==='mus'&&state.actor==='jugador1'){       musAction('jugador1',true);     }   });$('btn-paso').addEventListener('click',playerPass);
+  $('btn-envido').addEventListener('click',()=>playerBet(false));$('btn-ordago').addEventListener('click',()=>playerBet(true));
+  $('btn-quiero').addEventListener('click',()=>respond(true));$('btn-no-quiero').addEventListener('click',()=>respond(false));
+  $('btn-envido-mas').addEventListener('click',()=>respondRaise(false));$('btn-ordago-respuesta').addEventListener('click',()=>respondRaise(true));
+  $('btn-resolver').addEventListener('click',()=>showResults(false));$('btn-siguiente').addEventListener('click',()=>{if(state.stage==='summary')freshHand();});
+  $('btn-nueva').addEventListener('click',newGame);$('btn-reiniciar').addEventListener('click',()=>{
     if(state.handNumber===1&&state.stage==='mus'&&state.scores.nosotros===0&&state.scores.ellos===0){newGame();return;}
     if(window.confirm('¿Empezar una partida nueva? Se perderá el marcador actual.'))newGame();
   });
